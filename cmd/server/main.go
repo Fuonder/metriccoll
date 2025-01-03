@@ -102,10 +102,5 @@ func metricHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Content-Type - OK")
 	log.Println("Processing URL")
 	err := processData(r.URL)
-	if err != http.StatusOK {
-		w.WriteHeader(err)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(err)
 }
