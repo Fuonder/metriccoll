@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -54,7 +55,7 @@ func SendMetrics() error {
 		client := &http.Client{}
 		resp, err = client.Do(request)
 		if err != nil {
-			return ErrCouldNotSendRequest
+			return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
