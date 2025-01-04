@@ -21,7 +21,7 @@ func TestMetrics_updateValues(t *testing.T) {
 		collection, err := NewMetricsCollection()
 		require.NoError(t, err)
 		require.NotNil(t, collection)
-		collection.updateValues(pollInterval)
+		collection.UpdateValues(pollInterval)
 		time.Sleep(reportInterval + 1*time.Second)
 		result, err := collection.getPollCount()
 		require.NoError(t, err)

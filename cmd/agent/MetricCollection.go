@@ -1,11 +1,15 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"math/rand"
 	"runtime"
 	"sync"
+	"time"
 )
+
+var ErrFieldNotFound = errors.New("field not found")
 
 type gauge float64
 
@@ -35,9 +39,12 @@ func NewMetricsCollection() (*MetricsCollection, error) {
 
 func (mc *MetricsCollection) ReadValues() {
 	mc.mu.Lock()
+	defer mc.mu.Unlock()
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	rNum := rand.Float64() * 100
+
+	mc.cMetrics["PollCount"] = mc.cMetrics["PollCount"] + 1
 
 	mc.gMetrics["Alloc"] = gauge(ms.Alloc)
 	mc.gMetrics["BuckHashSys"] = gauge(ms.BuckHashSys)
@@ -66,8 +73,28 @@ func (mc *MetricsCollection) ReadValues() {
 	mc.gMetrics["StackSys"] = gauge(ms.StackSys)
 	mc.gMetrics["Sys"] = gauge(ms.Sys)
 	mc.gMetrics["TotalAlloc"] = gauge(ms.TotalAlloc)
-	mc.cMetrics["PollCount"] = mc.cMetrics["PollCount"] + 1
 	mc.gMetrics["RandomValue"] = gauge(rNum)
-	log.Printf("PollCount:\t%d\n", mc.cMetrics["PollCount"])
-	mc.mu.Unlock()
+	//log.Printf("PollCount:\t%d\n", mc.cMetrics["PollCount"])
+
+}
+
+func (mc *MetricsCollection) UpdateValues(interval time.Duration) {
+	go func() {
+		for {
+
+			time.Sleep(interval)
+			log.Println("Updating metrics collection")
+			mc.ReadValues()
+		}
+	}()
+}
+
+func (mc *MetricsCollection) getPollCount() (counter, error) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	if _, ok := mc.cMetrics["PollCount"]; ok {
+		return mc.cMetrics["PollCount"], nil
+	}
+	return 0, ErrFieldNotFound
+
 }
