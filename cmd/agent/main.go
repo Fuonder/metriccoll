@@ -38,6 +38,7 @@ func main() {
 }
 
 func SendMetrics() error {
+	var resp *http.Response
 	for name, value := range mc.gMetrics {
 		url := "http://localhost:8080/update/"
 		url += value.Type() + "/" + name + "/" + strconv.FormatFloat(float64(value), 'f', -1, 64)
@@ -47,15 +48,14 @@ func SendMetrics() error {
 		}
 		request.Header.Add("Content-Type", "text/plain")
 		client := &http.Client{}
-		resp, err := client.Do(request)
-		defer resp.Body.Close()
+		resp, err = client.Do(request)
 		if err != nil {
 			return fmt.Errorf("could not send request: %w", err)
 		}
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("received status code: %d", resp.StatusCode)
 		}
-
 	}
 	for name, value := range mc.cMetrics {
 		url := "http://localhost:8080/update/"
@@ -66,11 +66,11 @@ func SendMetrics() error {
 		}
 		request.Header.Add("Content-Type", "text/plain")
 		client := &http.Client{}
-		resp, err := client.Do(request)
-		defer resp.Body.Close()
+		resp, err = client.Do(request)
 		if err != nil {
 			return fmt.Errorf("could not send request: %w", err)
 		}
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("received status code: %d", resp.StatusCode)
 		}
