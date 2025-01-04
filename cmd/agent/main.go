@@ -16,15 +16,16 @@ var (
 
 func updateValues() {
 	for {
+		time.Sleep(pollInterval)
 		log.Println("Updating metrics collection")
 		mc.ReadValues()
-		time.Sleep(pollInterval)
 	}
 }
 
 func main() {
 	go updateValues()
 	for {
+		time.Sleep(reportInterval)
 		log.Println("Sending metrics collection")
 		mc.mu.Lock()
 		err := SendMetrics()
@@ -32,7 +33,6 @@ func main() {
 			return
 		}
 		mc.mu.Unlock()
-		time.Sleep(reportInterval)
 	}
 
 }
