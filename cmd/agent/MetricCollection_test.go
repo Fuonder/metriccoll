@@ -8,26 +8,44 @@ import (
 )
 
 func TestMetrics_updateValues(t *testing.T) {
+	type want struct {
+		wantErr bool
+		number  counter
+	}
 	tests := []struct {
 		name string
-		want counter
+		want want
 	}{
 		{
 			name: "PositiveTest",
-			want: 5,
+			want: want{
+				wantErr: false,
+				number:  5,
+			},
+		},
+		{
+			name: "NegativeTest",
+			want: want{
+				wantErr: true,
+			},
 		},
 	}
 	for _, test := range tests {
-		collection, err := NewMetricsCollection()
-		require.NoError(t, err)
-		require.NotNil(t, collection)
-		collection.UpdateValues(pollInterval)
-		time.Sleep(reportInterval + 1*time.Second)
-		result, err := collection.getPollCount()
-		require.NoError(t, err)
-		collection.mu.Lock()
-		assert.Equal(t, test.want, result)
-		collection.mu.Unlock()
-
+		t.Run(test.name, func(t *testing.T) {
+			collection, err := NewMetricsCollection()
+			require.NoError(t, err)
+			require.NotNil(t, collection)
+			collection.UpdateValues(pollInterval)
+			time.Sleep(reportInterval + 1*time.Second)
+			result, err := collection.getPollCount()
+			require.NoError(t, err)
+			collection.mu.Lock()
+			if !test.want.wantErr {
+				assert.Equal(t, test.want.number, result)
+			} else {
+				assert.NotEqual(t, test.want.number, result)
+			}
+			collection.mu.Unlock()
+		})
 	}
 }
