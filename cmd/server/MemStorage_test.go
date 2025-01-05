@@ -2,14 +2,13 @@ package main
 
 import (
 	"github.com/stretchr/testify/require"
-	"sync"
 	"testing"
 )
 
 func TestAppendGaugeMetric(t *testing.T) {
 	type data struct {
-		st    MemStorage
-		items map[string]gauge
+		initItem map[string]gauge
+		items    map[string]gauge
 	}
 	tests := []struct {
 		name string
@@ -19,32 +18,30 @@ func TestAppendGaugeMetric(t *testing.T) {
 		{
 			name: "PositiveTestRewrite",
 			data: data{
-				st: MemStorage{
-					gMetric: map[string]gauge{"gMetric1": 3.00},
-					cMetric: nil,
-					mu:      sync.Mutex{},
-				},
-				items: map[string]gauge{"gMetric1": 1.00},
+				initItem: map[string]gauge{"gMetric1": 3.00},
+				items:    map[string]gauge{"gMetric1": 1.00},
 			},
 			want: 1.00,
 		},
 		{
 			name: "PositiveTestWrite",
 			data: data{
-				st: MemStorage{
-					gMetric: make(map[string]gauge),
-					cMetric: nil,
-					mu:      sync.Mutex{},
-				},
-				items: map[string]gauge{"gMetric1": -1.00},
+				initItem: nil,
+				items:    map[string]gauge{"gMetric1": -1.00},
 			},
 			want: -1.00,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			st := &test.data.st
-			require.NotNil(t, &st)
+			st, err := NewMemStorage()
+			require.NoError(t, err)
+			require.NotNil(t, st)
+			if test.data.initItem != nil {
+				for name, value := range test.data.initItem {
+					st.AppendGaugeMetric(name, value)
+				}
+			}
 			for name, value := range test.data.items {
 				st.AppendGaugeMetric(name, value)
 				require.Contains(t, st.gMetric, name)
@@ -56,8 +53,8 @@ func TestAppendGaugeMetric(t *testing.T) {
 
 func TestAppendCounterMetric(t *testing.T) {
 	type data struct {
-		st    MemStorage
-		items map[string]counter
+		initItem map[string]counter
+		items    map[string]counter
 	}
 	tests := []struct {
 		name string
@@ -67,32 +64,30 @@ func TestAppendCounterMetric(t *testing.T) {
 		{
 			name: "PositiveTestIncrease",
 			data: data{
-				st: MemStorage{
-					gMetric: nil,
-					cMetric: map[string]counter{"cMetric1": 3},
-					mu:      sync.Mutex{},
-				},
-				items: map[string]counter{"cMetric1": 1},
+				initItem: map[string]counter{"cMetric1": 3},
+				items:    map[string]counter{"cMetric1": 1},
 			},
 			want: 4,
 		},
 		{
 			name: "PositiveTestWriteFirst",
 			data: data{
-				st: MemStorage{
-					gMetric: nil,
-					cMetric: make(map[string]counter),
-					mu:      sync.Mutex{},
-				},
-				items: map[string]counter{"cMetric1": 1},
+				initItem: nil,
+				items:    map[string]counter{"cMetric1": 1},
 			},
 			want: 1,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			st := &test.data.st
-			require.NotNil(t, &st)
+			st, err := NewMemStorage()
+			require.NoError(t, err)
+			require.NotNil(t, st)
+			if test.data.initItem != nil {
+				for name, value := range test.data.initItem {
+					st.AppendCounterMetric(name, value)
+				}
+			}
 			for name, value := range test.data.items {
 				st.AppendCounterMetric(name, value)
 				require.Contains(t, st.cMetric, name)
