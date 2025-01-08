@@ -48,7 +48,7 @@ func (ms *Storage) AppendCounterMetric(name string, value counter) {
 	}
 }
 
-func (ms Storage) GetGaugeMetric(name string) (gauge, error) {
+func (ms *Storage) GetGaugeMetric(name string) (gauge, error) {
 	if metric, ok := ms.gMetric[name]; ok {
 		return metric, nil
 	} else {
@@ -56,7 +56,7 @@ func (ms Storage) GetGaugeMetric(name string) (gauge, error) {
 	}
 }
 
-func (ms Storage) GetCounterMetric(name string) (counter, error) {
+func (ms *Storage) GetCounterMetric(name string) (counter, error) {
 	if metric, ok := ms.cMetric[name]; ok {
 		return metric, nil
 	} else {
