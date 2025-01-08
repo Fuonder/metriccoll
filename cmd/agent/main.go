@@ -26,17 +26,17 @@ var (
 //}
 
 func main() {
-	go func() {
-		for {
-			time.Sleep(opt.reportInterval - 100*time.Millisecond)
-			_ = SendMetrics()
-			//time.Sleep(opt.reportInterval)
-		}
-	}()
 	err := parseFlags()
 	if err != nil {
 		log.Fatal(err)
 	}
+	go func() {
+		for {
+			time.Sleep(opt.reportInterval)
+			_ = SendMetrics()
+		}
+	}()
+	mc.UpdateValues(opt.pollInterval)
 
 }
 
