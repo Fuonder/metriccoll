@@ -82,9 +82,10 @@ func (mc *MetricsCollection) UpdateValues(interval time.Duration) {
 	go func() {
 		for {
 
-			time.Sleep(interval)
+			//time.Sleep(interval)
 			log.Println("Updating metrics collection")
 			mc.ReadValues()
+			time.Sleep(interval)
 		}
 	}()
 }
