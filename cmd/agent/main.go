@@ -37,15 +37,15 @@ func main() {
 	go func() {
 		for {
 			mc.ReadValues()
-			fmt.Printf("read time: %s\n", time.Now().Sub(s).String())
+			fmt.Printf("read time: %s\n", time.Since(s).String())
 			time.Sleep(opt.pollInterval)
 		}
 	}()
 	for {
 		time.Sleep(opt.reportInterval)
-		fmt.Println(time.Now().Sub(s))
+		fmt.Println(time.Since(s))
 		_ = SendMetrics()
-		fmt.Println(time.Now().Sub(s))
+		fmt.Println(time.Since(s))
 	}
 
 }
