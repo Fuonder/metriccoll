@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 )
@@ -44,7 +43,7 @@ func (n *netAddress) Set(value string) error {
 	if len(values) != 2 {
 		return fmt.Errorf("%w: \"%s\"", ErrNotFullIP, value)
 	}
-	n.ipaddr = net.ParseIP(values[0]).String()
+	n.ipaddr = values[0]
 	if n.ipaddr == "" {
 		return fmt.Errorf("%w: \"%s\"", ErrInvalidIP, values[0])
 	}
