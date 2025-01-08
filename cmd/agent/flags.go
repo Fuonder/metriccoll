@@ -88,33 +88,9 @@ var (
 
 func parseFlags() error {
 	flag.Usage = usage
-
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
 	flag.Int64Var(&pInterval, "p", 2, "interval of collecting metrics in secs")
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
-
-	//flag.Func("r", "interval of reports", func(flagValue string) error {
-	//	if flagValue == "" {
-	//		return fmt.Errorf("%w: \"%s\"", ErrInvalidArgument, pollInterval)
-	//	}
-	//	rInt, err := strconv.Atoi(flagValue)
-	//	if err != nil {
-	//		return fmt.Errorf("%w: \"%s\"", ErrInvalidArgument, pollInterval)
-	//	}
-	//	reportInterval = time.Duration(rInt) * time.Second
-	//	return nil
-	//})
-	//flag.Func("p", "interval of collecting metrics", func(flagValue string) error {
-	//	if flagValue == "" {
-	//		return fmt.Errorf("%w: \"%s\"", ErrInvalidArgument, pollInterval)
-	//	}
-	//	pInt, err := strconv.Atoi(flagValue)
-	//	if err != nil {
-	//		return fmt.Errorf("%w: \"%s\"", ErrInvalidArgument, pollInterval)
-	//	}
-	//	pollInterval = time.Duration(pInt) * time.Second
-	//	return nil
-	//})
 
 	flag.Parse()
 	opt.netAddr = *netAddr

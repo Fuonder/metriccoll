@@ -43,7 +43,7 @@ func main() {
 		}
 	}()
 	for {
-		time.Sleep(opt.reportInterval)
+		time.Sleep(opt.reportInterval - 100*time.Millisecond)
 		fmt.Println(time.Since(s))
 		_ = SendMetrics()
 		fmt.Println(time.Since(s))
