@@ -5,7 +5,6 @@ import (
 	"log"
 	"math/rand"
 	"runtime"
-	"sync"
 	"time"
 )
 
@@ -26,7 +25,7 @@ func (t counter) Type() string {
 type MetricsCollection struct {
 	gMetrics map[string]gauge
 	cMetrics map[string]counter
-	mu       sync.Mutex
+	//mu       sync.Mutex
 }
 
 func NewMetricsCollection() (*MetricsCollection, error) {
@@ -38,8 +37,8 @@ func NewMetricsCollection() (*MetricsCollection, error) {
 }
 
 func (mc *MetricsCollection) ReadValues() {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
+	//mc.mu.Lock()
+	//defer mc.mu.Unlock()
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	rNum := rand.Float64() * 100
@@ -91,8 +90,8 @@ func (mc *MetricsCollection) UpdateValues(interval time.Duration) {
 }
 
 func (mc *MetricsCollection) getPollCount() (counter, error) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
+	//mc.mu.Lock()
+	//defer mc.mu.Unlock()
 	if _, ok := mc.cMetrics["PollCount"]; ok {
 		return mc.cMetrics["PollCount"], nil
 	}
