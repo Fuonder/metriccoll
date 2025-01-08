@@ -32,26 +32,18 @@ func TestMetrics_updateValues(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			//mc := MetricsCollection{
-			//	gMetrics: make(map[string]gauge),
-			//	cMetrics: map[string]counter{"PollCount": 0},
-			//}
-			//require.NoError(t, err)
-			require.NotNil(t, mc)
-			for i := 0; i < 5; i++ {
-				mc.ReadValues()
-				time.Sleep(1 * time.Second)
-			}
-			//time.Sleep(opt.reportInterval)
-			result, err := mc.getPollCount()
+			collection, err := NewMetricsCollection()
 			require.NoError(t, err)
-			//collection.mu.Lock()
+			require.NotNil(t, collection)
+			collection.UpdateValues(opt.pollInterval)
+			time.Sleep(opt.reportInterval)
+			result, err := collection.getPollCount()
+			require.NoError(t, err)
 			if !test.want.wantErr {
 				assert.Equal(t, test.want.number, result)
 			} else {
 				assert.NotEqual(t, test.want.number, result)
 			}
-			//collection.mu.Unlock()
 		})
 	}
 }

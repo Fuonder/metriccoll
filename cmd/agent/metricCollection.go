@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 	"math/rand"
 	"runtime"
 	"time"
@@ -36,16 +37,13 @@ func NewMetricsCollection() (*MetricsCollection, error) {
 }
 
 func (mc *MetricsCollection) ReadValues() {
-	// mc.mu.Lock() // Removed Locking to speed up
+	// mc.mu.Lock()
 	// defer mc.mu.Unlock()
 
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
-
-	// Update PollCount directly
 	mc.cMetrics["PollCount"]++
 
-	// Batching updates to mc.gMetrics
 	mc.gMetrics = map[string]gauge{
 		"Alloc":         gauge(ms.Alloc),
 		"BuckHashSys":   gauge(ms.BuckHashSys),
@@ -76,7 +74,6 @@ func (mc *MetricsCollection) ReadValues() {
 		"TotalAlloc":    gauge(ms.TotalAlloc),
 		"RandomValue":   gauge(rand.Float64() * 100),
 	}
-	// Optional log (if needed):
 	// log.Printf("PollCount:\t%d\n", mc.cMetrics["PollCount"])
 }
 
@@ -85,7 +82,7 @@ func (mc *MetricsCollection) UpdateValues(interval time.Duration) {
 		for {
 
 			//time.Sleep(interval)
-			//log.Println("Updating metrics collection")
+			log.Println("Updating metrics collection")
 			mc.ReadValues()
 			time.Sleep(interval)
 		}
