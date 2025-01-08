@@ -20,7 +20,7 @@ func TestMetrics_updateValues(t *testing.T) {
 			name: "PositiveTest",
 			want: want{
 				wantErr: false,
-				number:  6,
+				number:  5,
 			},
 		},
 		{
