@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 	"math/rand"
 	"runtime"
 	"time"
@@ -37,54 +36,58 @@ func NewMetricsCollection() (*MetricsCollection, error) {
 }
 
 func (mc *MetricsCollection) ReadValues() {
-	//mc.mu.Lock()
-	//defer mc.mu.Unlock()
+	// mc.mu.Lock() // Removed Locking to speed up
+	// defer mc.mu.Unlock()
+
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
-	rNum := rand.Float64() * 100
 
-	mc.cMetrics["PollCount"] = mc.cMetrics["PollCount"] + 1
+	// Update PollCount directly
+	mc.cMetrics["PollCount"]++
 
-	mc.gMetrics["Alloc"] = gauge(ms.Alloc)
-	mc.gMetrics["BuckHashSys"] = gauge(ms.BuckHashSys)
-	mc.gMetrics["Frees"] = gauge(ms.Frees)
-	mc.gMetrics["GCCPUFraction"] = gauge(ms.GCCPUFraction)
-	mc.gMetrics["GCSys"] = gauge(ms.GCSys)
-	mc.gMetrics["HeapAlloc"] = gauge(ms.HeapAlloc)
-	mc.gMetrics["HeapIdle"] = gauge(ms.HeapIdle)
-	mc.gMetrics["HeapInuse"] = gauge(ms.HeapInuse)
-	mc.gMetrics["HeapObjects"] = gauge(ms.HeapObjects)
-	mc.gMetrics["HeapReleased"] = gauge(ms.HeapReleased)
-	mc.gMetrics["HeapSys"] = gauge(ms.HeapSys)
-	mc.gMetrics["LastGC"] = gauge(ms.LastGC)
-	mc.gMetrics["Lookups"] = gauge(ms.Lookups)
-	mc.gMetrics["MCacheInuse"] = gauge(ms.MCacheInuse)
-	mc.gMetrics["MCacheSys"] = gauge(ms.MCacheSys)
-	mc.gMetrics["MSpanInuse"] = gauge(ms.MSpanInuse)
-	mc.gMetrics["MSpanSys"] = gauge(ms.MSpanSys)
-	mc.gMetrics["Mallocs"] = gauge(ms.Mallocs)
-	mc.gMetrics["NextGC"] = gauge(ms.NextGC)
-	mc.gMetrics["NumForcedGC"] = gauge(ms.NumForcedGC)
-	mc.gMetrics["NumGC"] = gauge(ms.NumGC)
-	mc.gMetrics["OtherSys"] = gauge(ms.OtherSys)
-	mc.gMetrics["PauseTotalNs"] = gauge(ms.PauseTotalNs)
-	mc.gMetrics["StackInuse"] = gauge(ms.StackInuse)
-	mc.gMetrics["StackSys"] = gauge(ms.StackSys)
-	mc.gMetrics["Sys"] = gauge(ms.Sys)
-	mc.gMetrics["TotalAlloc"] = gauge(ms.TotalAlloc)
-	mc.gMetrics["RandomValue"] = gauge(rNum)
-	//log.Printf("PollCount:\t%d\n", mc.cMetrics["PollCount"])
-
+	// Batching updates to mc.gMetrics
+	mc.gMetrics = map[string]gauge{
+		"Alloc":         gauge(ms.Alloc),
+		"BuckHashSys":   gauge(ms.BuckHashSys),
+		"Frees":         gauge(ms.Frees),
+		"GCCPUFraction": gauge(ms.GCCPUFraction),
+		"GCSys":         gauge(ms.GCSys),
+		"HeapAlloc":     gauge(ms.HeapAlloc),
+		"HeapIdle":      gauge(ms.HeapIdle),
+		"HeapInuse":     gauge(ms.HeapInuse),
+		"HeapObjects":   gauge(ms.HeapObjects),
+		"HeapReleased":  gauge(ms.HeapReleased),
+		"HeapSys":       gauge(ms.HeapSys),
+		"LastGC":        gauge(ms.LastGC),
+		"Lookups":       gauge(ms.Lookups),
+		"MCacheInuse":   gauge(ms.MCacheInuse),
+		"MCacheSys":     gauge(ms.MCacheSys),
+		"MSpanInuse":    gauge(ms.MSpanInuse),
+		"MSpanSys":      gauge(ms.MSpanSys),
+		"Mallocs":       gauge(ms.Mallocs),
+		"NextGC":        gauge(ms.NextGC),
+		"NumForcedGC":   gauge(ms.NumForcedGC),
+		"NumGC":         gauge(ms.NumGC),
+		"OtherSys":      gauge(ms.OtherSys),
+		"PauseTotalNs":  gauge(ms.PauseTotalNs),
+		"StackInuse":    gauge(ms.StackInuse),
+		"StackSys":      gauge(ms.StackSys),
+		"Sys":           gauge(ms.Sys),
+		"TotalAlloc":    gauge(ms.TotalAlloc),
+		"RandomValue":   gauge(rand.Float64() * 100),
+	}
+	// Optional log (if needed):
+	// log.Printf("PollCount:\t%d\n", mc.cMetrics["PollCount"])
 }
 
 func (mc *MetricsCollection) UpdateValues(interval time.Duration) {
 	go func() {
 		for {
 
-			time.Sleep(interval)
-			log.Println("Updating metrics collection")
-			mc.ReadValues()
 			//time.Sleep(interval)
+			//log.Println("Updating metrics collection")
+			mc.ReadValues()
+			time.Sleep(interval)
 		}
 	}()
 }
