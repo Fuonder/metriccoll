@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -60,9 +61,16 @@ var netAddr = &netAddress{
 	port:   8080,
 }
 
-func parseFlags() {
+func parseFlags() error {
 	flag.Usage = usage
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
 
 	flag.Parse()
+	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+		err := netAddr.Set(envRunAddr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

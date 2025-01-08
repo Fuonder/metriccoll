@@ -13,9 +13,12 @@ import (
 var ms, _ = NewMemStorage()
 
 func main() {
-	parseFlags()
+	err := parseFlags()
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.Println("Starting metric collector")
-	if err := run(); err != nil {
+	if err = run(); err != nil {
 		log.Fatal(err)
 	}
 }
