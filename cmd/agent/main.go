@@ -35,13 +35,10 @@ func main() {
 	}
 	fmt.Printf("opt:\n\t%s\n\t%s\n", opt.pollInterval.String(), opt.reportInterval.String())
 	//s := time.Now()
-	go func() {
-		for {
-			mc.UpdateValues(opt.pollInterval)
-			//fmt.Printf("read time: %s\n", time.Since(s).String())
-			//time.Sleep(opt.pollInterval)
-		}
-	}()
+
+	mc.UpdateValues(opt.pollInterval)
+	//fmt.Printf("read time: %s\n", time.Since(s).String())
+	//time.Sleep(opt.pollInterval)
 	for {
 		time.Sleep(opt.reportInterval)
 		_ = SendMetrics()
