@@ -121,10 +121,10 @@ func parseFlags() error {
 	opt.netAddr = *netAddr
 
 	if pInterval <= 0 {
-		return fmt.Errorf("%w: \"%s\"", ErrInvalidArgument, pInterval)
+		return fmt.Errorf("%w: \"%d\"", ErrInvalidArgument, pInterval)
 	}
 	if rInterval <= 0 {
-		return fmt.Errorf("%w: \"%s\"", ErrInvalidArgument, rInterval)
+		return fmt.Errorf("%w: \"%d\"", ErrInvalidArgument, rInterval)
 	}
 
 	opt.pollInterval = time.Duration(pInterval) * time.Second
