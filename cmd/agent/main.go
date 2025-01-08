@@ -30,6 +30,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = SendMetrics()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	mc.UpdateValues(opt.pollInterval)
 	for {
 		time.Sleep(opt.reportInterval)
