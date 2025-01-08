@@ -15,7 +15,6 @@ var mc = MetricsCollection{
 }
 
 var (
-	//ErrCouldNotCreateRequest = errors.New("could not create request")
 	ErrCouldNotSendRequest = errors.New("could not send request")
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
@@ -25,7 +24,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("opt:\n\t%s\n\t%s\n", opt.pollInterval.String(), opt.reportInterval.String())
 
 	mc.UpdateValues(opt.pollInterval)
 	for {
@@ -37,7 +35,8 @@ func main() {
 func SendMetrics() error {
 	client := resty.New()
 	for name, value := range mc.gMetrics {
-		url := "http://" + opt.netAddr.String() + "/update/" + value.Type() + "/" + name + "/" + strconv.FormatFloat(float64(value), 'f', -1, 64)
+		url := "http://" + opt.netAddr.String() + "/update/" + value.Type() +
+			"/" + name + "/" + strconv.FormatFloat(float64(value), 'f', -1, 64)
 		resp, err := client.R().
 			SetHeader("Content-Type", "text/plain").
 			Post(url)
@@ -49,7 +48,8 @@ func SendMetrics() error {
 		}
 	}
 	for name, value := range mc.cMetrics {
-		url := "http://" + opt.netAddr.String() + "/update/" + value.Type() + "/" + name + "/" + strconv.FormatInt(int64(value), 10)
+		url := "http://" + opt.netAddr.String() + "/update/" + value.Type() +
+			"/" + name + "/" + strconv.FormatInt(int64(value), 10)
 		resp, err := client.R().
 			SetHeader("Content-Type", "text/plain").
 			Post(url)

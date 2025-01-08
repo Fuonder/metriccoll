@@ -156,30 +156,4 @@ func TestMetricRouter(t *testing.T) {
 			require.Equal(t, test.wantResp, body)
 		})
 	}
-	//fmt.Println(ms) &{map[gMetric:1] map[cMetric:2] {0 0}}
-
-	//fmt.Println(ms)
-	//fmt.Println(ms)
-	//fmt.Println(testsGet)
-
 }
-
-//func TestMetricHandler(t *testing.T) {
-//
-//	for _, test := range tests {
-//		t.Run(test.name, func(t *testing.T) {
-//			//srvUrl := "http://localhost:8080"
-//			request := httptest.NewRequest(test.method, test.url, nil)
-//			request.Header.Set("Content-Type", test.contentType)
-//			recorder := httptest.NewRecorder()
-//			h := http.HandlerFunc(metricHandler)
-//			h(recorder, request)
-//			res := recorder.Result()
-//			defer res.Body.Close()
-//
-//			require.Equal(t, test.want, res.StatusCode)
-//
-//		})
-//	}
-//
-//}

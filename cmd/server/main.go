@@ -12,17 +12,6 @@ import (
 
 var ms, _ = NewMemStorage()
 
-func main() {
-	err := parseFlags()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Starting metric collector")
-	if err = run(); err != nil {
-		log.Fatal(err)
-	}
-}
-
 func valueHandler(rw http.ResponseWriter, r *http.Request) {
 	log.Println("entering value handler")
 	mType := chi.URLParam(r, "mType")
@@ -164,9 +153,18 @@ func checkMetricValue(next http.Handler) http.Handler {
 	})
 }
 
-func run() error {
-	//srvConf, _ := newConfig("localhost", "8080")
+func main() {
+	err := parseFlags()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Starting metric collector")
+	if err = run(); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func run() error {
 	log.Printf("Listening at %s\n", netAddr.String())
 	return http.ListenAndServe(netAddr.String(), metricRouter())
 }
@@ -182,10 +180,10 @@ func metricRouter() chi.Router {
 			router.Use(checkMetricType)
 			router.Route("/{mName}", func(router chi.Router) {
 				router.Use(checkMetricName)
-				router.Post("/", http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+				router.Post("/", func(rw http.ResponseWriter, r *http.Request) {
 					log.Println("no metric value has given")
 					http.Error(rw, "incorrect metric value", http.StatusBadRequest)
-				}))
+				})
 				router.Route("/{mValue}", func(router chi.Router) {
 					router.Use(checkMetricValue)
 					router.Post("/", updateHandler)
