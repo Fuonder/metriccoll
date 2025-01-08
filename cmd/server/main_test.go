@@ -144,12 +144,14 @@ func TestMetricRouter(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			resp, _ := testRequest(t, ts, test.method, test.contentType, test.url)
+			defer resp.Body.Close()
 			require.Equal(t, test.want, resp.StatusCode)
 		})
 	}
 	for _, test := range testsGet {
 		t.Run(test.name, func(t *testing.T) {
 			resp, body := testRequest(t, ts, test.method, test.contentType, test.url)
+			defer resp.Body.Close()
 			require.Equal(t, test.want, resp.StatusCode)
 			require.Equal(t, test.wantResp, body)
 		})
