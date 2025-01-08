@@ -20,7 +20,7 @@ func TestMetrics_updateValues(t *testing.T) {
 			name: "PositiveTest",
 			want: want{
 				wantErr: false,
-				number:  5,
+				number:  6,
 			},
 		},
 		{
@@ -36,8 +36,8 @@ func TestMetrics_updateValues(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, collection)
 			collection.UpdateValues(opt.pollInterval)
-			//time.Sleep(opt.reportInterval + 1*time.Second)
-			time.Sleep(opt.reportInterval)
+			time.Sleep(opt.reportInterval + 1*time.Second)
+			//time.Sleep(opt.reportInterval)
 			result, err := collection.getPollCount()
 			require.NoError(t, err)
 			collection.mu.Lock()
