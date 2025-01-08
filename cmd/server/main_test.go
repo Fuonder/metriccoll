@@ -119,7 +119,7 @@ func TestMetricRouter(t *testing.T) {
 			method:      http.MethodGet,
 			contentType: "text/plain",
 			want:        http.StatusOK,
-			wantResp:    "gMetric 1.01",
+			wantResp:    "1.01",
 		},
 		{
 			name:        "PositiveGetAllValues",

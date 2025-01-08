@@ -30,7 +30,7 @@ func valueHandler(rw http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			http.Error(rw, err.Error(), http.StatusNotFound)
 		} else {
-			io.WriteString(rw, mName+" "+strconv.FormatFloat(float64(value), 'f', -1, 64))
+			io.WriteString(rw, strconv.FormatFloat(float64(value), 'f', -1, 64))
 			return
 		}
 	} else if mType == "counter" {
@@ -40,7 +40,7 @@ func valueHandler(rw http.ResponseWriter, r *http.Request) {
 			http.Error(rw, err.Error(), http.StatusNotFound)
 		} else {
 			log.Println("leaving value handler")
-			io.WriteString(rw, mName+" "+strconv.FormatInt(int64(value), 10))
+			io.WriteString(rw, strconv.FormatInt(int64(value), 10))
 			return
 		}
 	}
