@@ -9,11 +9,7 @@ import (
 	"time"
 )
 
-var (
-	pollInterval   = 2 * time.Second
-	reportInterval = 10 * time.Second
-	mc, _          = NewMetricsCollection()
-)
+var mc, _ = NewMetricsCollection()
 
 var (
 	ErrCouldNotCreateRequest = errors.New("could not create request")
@@ -30,9 +26,14 @@ var (
 //}
 
 func main() {
-	mc.UpdateValues(pollInterval)
+	err := parseFlags()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(opt)
+	mc.UpdateValues(opt.pollInterval)
 	for {
-		time.Sleep(reportInterval)
+		time.Sleep(opt.reportInterval)
 		err := SendMetrics()
 		if err != nil {
 			log.Fatal(err)

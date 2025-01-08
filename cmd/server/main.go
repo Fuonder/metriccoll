@@ -13,6 +13,7 @@ import (
 var ms, _ = NewMemStorage()
 
 func main() {
+	parseFlags()
 	log.Println("Starting metric collector")
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -161,9 +162,10 @@ func checkMetricValue(next http.Handler) http.Handler {
 }
 
 func run() error {
-	srvConf, _ := newConfig("localhost", "8080")
-	log.Printf("Listening at %s\n", srvConf.fullAddr())
-	return http.ListenAndServe(srvConf.fullAddr(), metricRouter())
+	//srvConf, _ := newConfig("localhost", "8080")
+
+	log.Printf("Listening at %s\n", netAddr.String())
+	return http.ListenAndServe(netAddr.String(), metricRouter())
 }
 
 func metricRouter() chi.Router {
