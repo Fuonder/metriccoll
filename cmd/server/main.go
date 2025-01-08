@@ -100,7 +100,8 @@ func checkContentType(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "text/plain" &&
 			r.Header.Get("Content-Type") != "text/plain; charset=UTF-8" &&
-			r.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
+			r.Header.Get("Content-Type") != "text/plain; charset=utf-8" &&
+			r.Header.Get("Content-Type") != "" {
 			log.Printf("wrong content type: %s", r.Header.Get("Content-Type"))
 			http.Error(w, "invalid content type", http.StatusBadRequest)
 		} else {
