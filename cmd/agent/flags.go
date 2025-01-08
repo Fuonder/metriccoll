@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -93,16 +94,26 @@ func parseFlags() error {
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
 
 	flag.Parse()
-	opt.netAddr = *netAddr
 
-	if pInterval <= 0 {
-		return fmt.Errorf("%w: \"%d\"", ErrInvalidArgument, pInterval)
-	}
-	if rInterval <= 0 {
-		return fmt.Errorf("%w: \"%d\"", ErrInvalidArgument, rInterval)
+	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+		err := opt.netAddr.Set(envRunAddr)
+		if err != nil {
+			return err
+		}
+	} else if netAddr != nil {
+		opt.netAddr = *netAddr
 	}
 
-	opt.pollInterval = time.Duration(pInterval) * time.Second
-	opt.reportInterval = time.Duration(rInterval) * time.Second
+	if envRInterval := os.Getenv("REPORT_INTERVAL"); envRInterval != "" {
+		opt.reportInterval, _ = time.ParseDuration(envRInterval)
+	} else if rInterval > 0 {
+		opt.reportInterval = time.Duration(rInterval) * time.Second
+	}
+	if envPInterval := os.Getenv("POLL_INTERVAL"); envPInterval != "" {
+		opt.reportInterval, _ = time.ParseDuration(envPInterval)
+	} else if pInterval > 0 {
+		opt.pollInterval = time.Duration(pInterval) * time.Second
+	}
+
 	return nil
 }
