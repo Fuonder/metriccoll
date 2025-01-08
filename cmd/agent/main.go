@@ -33,6 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("opt:\n\t%s\n\t%s\n", opt.pollInterval.String(), opt.reportInterval.String())
 	s := time.Now()
 	go func() {
 		for {
