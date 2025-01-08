@@ -41,13 +41,13 @@ func TestMetrics_updateValues(t *testing.T) {
 			mc.UpdateValues(1 * time.Second)
 			time.Sleep(5 * time.Second)
 			//time.Sleep(opt.reportInterval)
-			//mc.cMetrics["PollCount"]
-			//require.NoError(t, err)
+			result, err := mc.getPollCount()
+			require.NoError(t, err)
 			//collection.mu.Lock()
 			if !test.want.wantErr {
-				assert.Equal(t, test.want.number, mc.cMetrics["PollCount"])
+				assert.Equal(t, test.want.number, result)
 			} else {
-				assert.NotEqual(t, test.want.number, mc.cMetrics["PollCount"])
+				assert.NotEqual(t, test.want.number, result)
 			}
 			//collection.mu.Unlock()
 		})
