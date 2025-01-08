@@ -30,13 +30,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = SendMetrics()
-	if err != nil {
-		log.Fatal(err)
-	}
 	for {
 		time.Sleep(opt.reportInterval)
-
 		err = SendMetrics()
 		//time.Sleep(opt.reportInterval)
 		if err != nil {
