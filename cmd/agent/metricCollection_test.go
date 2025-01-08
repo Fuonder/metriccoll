@@ -38,8 +38,10 @@ func TestMetrics_updateValues(t *testing.T) {
 			//}
 			//require.NoError(t, err)
 			require.NotNil(t, mc)
-			mc.UpdateValues(1 * time.Second)
-			time.Sleep(5 * time.Second)
+			for i := 0; i < 5; i++ {
+				mc.ReadValues()
+				time.Sleep(1 * time.Second)
+			}
 			//time.Sleep(opt.reportInterval)
 			result, err := mc.getPollCount()
 			require.NoError(t, err)

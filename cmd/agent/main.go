@@ -33,13 +33,20 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	s := time.Now()
 	go func() {
 		for {
-			time.Sleep(opt.reportInterval)
-			_ = SendMetrics()
+			mc.ReadValues()
+			fmt.Printf("read time: %s\n", time.Now().Sub(s).String())
+			time.Sleep(opt.pollInterval)
 		}
 	}()
-	mc.UpdateValues(opt.pollInterval)
+	for {
+		time.Sleep(opt.reportInterval)
+		fmt.Println(time.Now().Sub(s))
+		_ = SendMetrics()
+		fmt.Println(time.Now().Sub(s))
+	}
 
 }
 
