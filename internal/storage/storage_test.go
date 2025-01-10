@@ -1,25 +1,26 @@
-package main
+package storage
 
 import (
+	model "github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestAppendGaugeMetric(t *testing.T) {
 	type data struct {
-		initItem map[string]gauge
-		items    map[string]gauge
+		initItem map[string]model.Gauge
+		items    map[string]model.Gauge
 	}
 	tests := []struct {
 		name string
 		data data
-		want gauge
+		want model.Gauge
 	}{
 		{
 			name: "PositiveTestRewrite",
 			data: data{
-				initItem: map[string]gauge{"gMetric1": 3.00},
-				items:    map[string]gauge{"gMetric1": 1.00},
+				initItem: map[string]model.Gauge{"gMetric1": 3.00},
+				items:    map[string]model.Gauge{"gMetric1": 1.00},
 			},
 			want: 1.00,
 		},
@@ -27,7 +28,7 @@ func TestAppendGaugeMetric(t *testing.T) {
 			name: "PositiveTestWrite",
 			data: data{
 				initItem: nil,
-				items:    map[string]gauge{"gMetric1": -1.00},
+				items:    map[string]model.Gauge{"gMetric1": -1.00},
 			},
 			want: -1.00,
 		},
@@ -53,19 +54,19 @@ func TestAppendGaugeMetric(t *testing.T) {
 
 func TestAppendCounterMetric(t *testing.T) {
 	type data struct {
-		initItem map[string]counter
-		items    map[string]counter
+		initItem map[string]model.Counter
+		items    map[string]model.Counter
 	}
 	tests := []struct {
 		name string
 		data data
-		want counter
+		want model.Counter
 	}{
 		{
 			name: "PositiveTestIncrease",
 			data: data{
-				initItem: map[string]counter{"cMetric1": 3},
-				items:    map[string]counter{"cMetric1": 1},
+				initItem: map[string]model.Counter{"cMetric1": 3},
+				items:    map[string]model.Counter{"cMetric1": 1},
 			},
 			want: 4,
 		},
@@ -73,7 +74,7 @@ func TestAppendCounterMetric(t *testing.T) {
 			name: "PositiveTestWriteFirst",
 			data: data{
 				initItem: nil,
-				items:    map[string]counter{"cMetric1": 1},
+				items:    map[string]model.Counter{"cMetric1": 1},
 			},
 			want: 1,
 		},

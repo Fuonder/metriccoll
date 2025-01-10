@@ -32,60 +32,78 @@ var usage = func() {
 	flag.PrintDefaults()
 }
 
-type netAddress struct {
-	ipaddr string
-	port   int
+type NetAddress struct {
+	IpAddr string
+	Port   int
 }
 
-func (n *netAddress) String() string {
-	return fmt.Sprintf("%s:%d", n.ipaddr, n.port)
+func (n *NetAddress) String() string {
+	return fmt.Sprintf("%s:%d", n.IpAddr, n.Port)
 }
 
-func (n *netAddress) Set(value string) error {
+func (n *NetAddress) Set(value string) error {
 	values := strings.Split(value, ":")
 	if len(values) != 2 {
 		return fmt.Errorf("%w: \"%s\"", ErrNotFullIP, value)
 	}
-	n.ipaddr = values[0]
-	if n.ipaddr == "" {
+	n.IpAddr = values[0]
+	if n.IpAddr == "" {
 		return fmt.Errorf("%w: \"%s\"", ErrInvalidIP, values[0])
 	}
 	var err error
-	n.port, err = strconv.Atoi(values[1])
+	n.Port, err = strconv.Atoi(values[1])
 	if err != nil {
 		return fmt.Errorf("%w: \"%s\"", ErrInvalidPort, values[1])
 	}
 	return nil
 }
 
-type options struct {
-	netAddr        netAddress
-	reportInterval time.Duration
-	pollInterval   time.Duration
+type CliOptions struct {
+	NetAddr        NetAddress
+	ReportInterval time.Duration
+	PollInterval   time.Duration
 }
 
-func (o *options) String() string {
+func (o *CliOptions) String() string {
 	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s",
-		o.netAddr.String(),
-		o.reportInterval,
-		o.pollInterval)
+		o.NetAddr.String(),
+		o.ReportInterval,
+		o.PollInterval)
 }
 
 var (
-	opt = options{
-		netAddr: netAddress{
-			ipaddr: "localhost",
-			port:   8080},
-		reportInterval: 10 * time.Second,
-		pollInterval:   2 * time.Second,
+	CliOpt = CliOptions{
+		NetAddr: NetAddress{
+			IpAddr: "localhost",
+			Port:   8080},
+		ReportInterval: 10 * time.Second,
+		PollInterval:   2 * time.Second,
 	}
-	netAddr = &netAddress{
-		ipaddr: "localhost",
-		port:   8080,
+	netAddr = &NetAddress{
+		IpAddr: "localhost",
+		Port:   8080,
 	}
 	pInterval int64 = 2
 	rInterval int64 = 10
 )
+
+func validateIntervalString(interval string) error {
+	i, err := strconv.Atoi(interval)
+	if err != nil {
+		return fmt.Errorf("malformed interval value: \"%s\": %w", interval, err)
+	}
+	if i <= 0 {
+		return fmt.Errorf("interval out of range: %s", interval)
+	}
+	return nil
+}
+
+func validateIntervalInt64(interval int64) error {
+	if interval <= 0 {
+		return fmt.Errorf("interval out of range: %d", interval)
+	}
+	return nil
+}
 
 func parseFlags() error {
 	flag.Usage = usage
@@ -94,26 +112,49 @@ func parseFlags() error {
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
 
 	flag.Parse()
+	var err error
 
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
-		err := opt.netAddr.Set(envRunAddr)
+		err = CliOpt.NetAddr.Set(envRunAddr)
 		if err != nil {
 			return err
 		}
 	} else if netAddr != nil {
-		opt.netAddr = *netAddr
+		CliOpt.NetAddr = *netAddr
 	}
 
 	if envRInterval := os.Getenv("REPORT_INTERVAL"); envRInterval != "" {
-		opt.reportInterval, _ = time.ParseDuration(envRInterval)
-	} else if rInterval > 0 {
-		opt.reportInterval = time.Duration(rInterval) * time.Second
-	}
-	if envPInterval := os.Getenv("POLL_INTERVAL"); envPInterval != "" {
-		opt.reportInterval, _ = time.ParseDuration(envPInterval)
-	} else if pInterval > 0 {
-		opt.pollInterval = time.Duration(pInterval) * time.Second
+		err = validateIntervalString(envRInterval)
+		if err != nil {
+			return fmt.Errorf("REPORT_INTERVAL: %w", err)
+		}
+		CliOpt.ReportInterval, err = time.ParseDuration(envRInterval + "s")
+		if err != nil {
+			return fmt.Errorf("REPORT_INTERVAL: %w", err)
+		}
+	} else {
+		err = validateIntervalInt64(rInterval)
+		if err != nil {
+			return fmt.Errorf("flag -r: %w", err)
+		}
+		CliOpt.ReportInterval = time.Duration(rInterval) * time.Second
 	}
 
+	if envPInterval := os.Getenv("POLL_INTERVAL"); envPInterval != "" {
+		err = validateIntervalString(envPInterval)
+		if err != nil {
+			return fmt.Errorf("POLL_INTERVAL: %w", err)
+		}
+		CliOpt.PollInterval, err = time.ParseDuration(envPInterval + "s")
+		if err != nil {
+			return fmt.Errorf("POLL_INTERVAL: %w", err)
+		}
+	} else {
+		err = validateIntervalInt64(pInterval)
+		if err != nil {
+			return fmt.Errorf("flag -p: %w", err)
+		}
+		CliOpt.PollInterval = time.Duration(pInterval) * time.Second
+	}
 	return nil
 }

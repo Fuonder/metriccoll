@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/Fuonder/metriccoll.git/internal/server"
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
@@ -137,8 +139,10 @@ func TestMetricRouter(t *testing.T) {
 			wantResp:    "metric with such key is not found: negative\n",
 		},
 	}
-
-	ts := httptest.NewServer(metricRouter())
+	ms, err := storage.NewMemStorage()
+	h := server.NewHandler(ms)
+	require.NoError(t, err)
+	ts := httptest.NewServer(metricRouter(h))
 	defer ts.Close()
 
 	for _, test := range tests {

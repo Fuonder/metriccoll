@@ -3,16 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/go-resty/resty/v2"
 	"log"
 	"strconv"
 	"time"
 )
-
-var mc = MetricsCollection{
-	gMetrics: make(map[string]gauge),
-	cMetrics: map[string]counter{"PollCount": 0},
-}
 
 var (
 	ErrCouldNotSendRequest = errors.New("could not send request")
@@ -20,22 +16,53 @@ var (
 )
 
 func main() {
-	err := parseFlags()
+	mc, err := storage.NewMetricsCollection()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	mc.UpdateValues(opt.pollInterval)
+	err = parseFlags()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ch := make(chan struct{})
+	mc.UpdateValues(CliOpt.PollInterval, ch)
+
 	for {
-		time.Sleep(opt.reportInterval)
-		_ = SendMetrics()
+		time.Sleep(CliOpt.ReportInterval)
+		err = SendMetrics(mc)
+		if err != nil {
+			close(ch)
+			time.Sleep(2 * time.Second)
+			log.Fatal(err)
+		}
+		//err = testAll()
+		//if err != nil {
+		//	close(ch)
+		//	time.Sleep(2 * time.Second)
+		//	log.Fatal(err)
+		//}
 	}
 }
 
-func SendMetrics() error {
+//func testAll() error {
+//	client := resty.New()
+//	resp, err := client.R().SetHeader("Content-Type", "text/plain").Get("http://localhost:8080/")
+//	if err != nil {
+//		return err
+//	}
+//	fmt.Println(resp)
+//	return nil
+//}
+
+func SendMetrics(mc storage.Collection) error {
 	client := resty.New()
-	for name, value := range mc.gMetrics {
-		url := "http://" + opt.netAddr.String() + "/update/" + value.Type() +
+	gMetrics := mc.GetGaugeList()
+	cMetrics := mc.GetCounterList()
+
+	for name, value := range gMetrics {
+		url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
 			"/" + name + "/" + strconv.FormatFloat(float64(value), 'f', -1, 64)
 		resp, err := client.R().
 			SetHeader("Content-Type", "text/plain").
@@ -47,8 +74,8 @@ func SendMetrics() error {
 			return ErrWrongResponseStatus
 		}
 	}
-	for name, value := range mc.cMetrics {
-		url := "http://" + opt.netAddr.String() + "/update/" + value.Type() +
+	for name, value := range cMetrics {
+		url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
 			"/" + name + "/" + strconv.FormatInt(int64(value), 10)
 		resp, err := client.R().
 			SetHeader("Content-Type", "text/plain").
