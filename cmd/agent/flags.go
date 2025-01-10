@@ -33,12 +33,12 @@ var usage = func() {
 }
 
 type NetAddress struct {
-	IpAddr string
+	IPAddr string
 	Port   int
 }
 
 func (n *NetAddress) String() string {
-	return fmt.Sprintf("%s:%d", n.IpAddr, n.Port)
+	return fmt.Sprintf("%s:%d", n.IPAddr, n.Port)
 }
 
 func (n *NetAddress) Set(value string) error {
@@ -46,8 +46,8 @@ func (n *NetAddress) Set(value string) error {
 	if len(values) != 2 {
 		return fmt.Errorf("%w: \"%s\"", ErrNotFullIP, value)
 	}
-	n.IpAddr = values[0]
-	if n.IpAddr == "" {
+	n.IPAddr = values[0]
+	if n.IPAddr == "" {
 		return fmt.Errorf("%w: \"%s\"", ErrInvalidIP, values[0])
 	}
 	var err error
@@ -74,13 +74,13 @@ func (o *CliOptions) String() string {
 var (
 	CliOpt = CliOptions{
 		NetAddr: NetAddress{
-			IpAddr: "localhost",
+			IPAddr: "localhost",
 			Port:   8080},
 		ReportInterval: 10 * time.Second,
 		PollInterval:   2 * time.Second,
 	}
 	netAddr = &NetAddress{
-		IpAddr: "localhost",
+		IPAddr: "localhost",
 		Port:   8080,
 	}
 	pInterval int64 = 2
