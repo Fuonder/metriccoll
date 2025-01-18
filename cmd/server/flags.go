@@ -56,14 +56,18 @@ func (n *netAddress) Set(value string) error {
 	return nil
 }
 
-var netAddr = &netAddress{
-	ipaddr: "localhost",
-	port:   8080,
-}
+var (
+	netAddr = &netAddress{
+		ipaddr: "localhost",
+		port:   8080,
+	}
+	flagLogLevel string
+)
 
 func parseFlags() error {
 	flag.Usage = usage
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
+	flag.StringVar(&flagLogLevel, "l", "info", "loglevel")
 
 	flag.Parse()
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
@@ -71,6 +75,9 @@ func parseFlags() error {
 		if err != nil {
 			return err
 		}
+	}
+	if envLogLevel := os.Getenv("LOG_LEVEL"); envLogLevel != "" {
+		flagLogLevel = envLogLevel
 	}
 	return nil
 }
