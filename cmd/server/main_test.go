@@ -266,6 +266,7 @@ func TestJSONHandling(t *testing.T) {
 
 			require.NoError(t, err)
 			resp, stringResp := testJSONRequest(t, ts, test.method, test.contentType, test.url, []byte(test.body))
+			defer resp.Body.Close()
 			require.Equal(t, test.want.statusCode, resp.StatusCode)
 			if !test.want.err {
 				require.JSONEq(t, test.want.wantResp, stringResp)
