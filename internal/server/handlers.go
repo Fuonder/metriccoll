@@ -112,14 +112,14 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	logger.Log.Info("entering json update handler")
 	if r.Header.Get("Content-Type") != "application/json" {
-		logger.Log.Error("invalid content type",
+		logger.Log.Info("invalid content type",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 		return
 	}
 	var mt models.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&mt); err != nil {
-		logger.Log.Error("json decode error", zap.Error(err))
+		logger.Log.Info("json decode error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -128,11 +128,13 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 	err := h.storage.AppendMetric(mt)
 	if err != nil {
-		logger.Log.Error("can not add metric", zap.Error(err))
+		logger.Log.Info("can not add metric", zap.Error(err))
 		if errors.Is(err, storage.ErrInvalidMetricValue) {
+			logger.Log.Info("invalid metric value")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
+		logger.Log.Info("over error then adding metric")
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -140,15 +142,17 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log.Error("can not get metric by name", zap.Error(err))
 		if errors.Is(err, storage.ErrInvalidMetricValue) {
+			logger.Log.Info("invalid metric value")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
+		logger.Log.Info("over error then getting metric")
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	resp, err := json.MarshalIndent(mtRes, "", "    ")
 	if err != nil {
-		logger.Log.Error("json marshal error", zap.Error(err))
+		logger.Log.Info("json marshal error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -160,10 +164,13 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if r.Header.Get("Content-Type") != "application/json" {
+		logger.Log.Info("Invalid content type !!!!",
+			zap.String("Content-Type", r.Header.Get("Content-Type")))
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 	}
 	var metric models.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
+		logger.Log.Info("Can not parse json request", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -171,12 +178,14 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
+		logger.Log.Info("metric not found", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	metric = mt
 	resp, err := json.MarshalIndent(metric, "", "    ")
 	if err != nil {
+		logger.Log.Info("can not create response", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
