@@ -65,7 +65,6 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 		io.WriteString(rw, strconv.FormatInt(*metric.Delta, 10))
 		return
 	}
-	return
 
 	//if mType == "gauge" {
 	//	value, err := h.storage.GetGaugeMetric(mName)
