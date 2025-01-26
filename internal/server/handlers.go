@@ -124,6 +124,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+	fmt.Println(mt)
 
 	err := h.storage.AppendMetric(mt)
 	if err != nil {
