@@ -49,7 +49,7 @@ func (ms *memStorage) GetMetricByName(name string, mType string) (models.Metrics
 	if mType == "gauge" {
 		metricValGauge, err := ms.getGaugeMetric(name)
 		if err != nil {
-
+			return models.Metrics{}, err
 		}
 		return models.Metrics{ID: name, MType: "gauge", Value: (*float64)(&metricValGauge)}, nil
 	} else if mType == "counter" {
