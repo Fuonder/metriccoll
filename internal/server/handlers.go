@@ -133,7 +133,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
@@ -143,13 +143,13 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	resp, err := json.MarshalIndent(mtRes, "", "    ")
 	if err != nil {
 		logger.Log.Error("json marshal error", zap.Error(err))
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -177,10 +177,11 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	metric = mt
 	resp, err := json.MarshalIndent(metric, "", "    ")
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	rw.WriteHeader(http.StatusOK)
+	logger.Log.Info("SENDING RESPONSE", zap.String("resp", string(resp)))
 	rw.Write(resp)
 }
 
