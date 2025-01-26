@@ -157,6 +157,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 	}
@@ -177,7 +178,6 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusOK)
 	rw.Write(resp)
 }
