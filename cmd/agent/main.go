@@ -113,7 +113,7 @@ func SendMetricsJSON(mc storage.Collection) error {
 			SetBody(out).
 			Post(url)
 		if err != nil {
-			return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
+			return fmt.Errorf("2%w: %s", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
 			return ErrWrongResponseStatus
@@ -135,7 +135,7 @@ func SendMetricsJSON(mc storage.Collection) error {
 			SetBody(out).
 			Post(url)
 		if err != nil {
-			return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
+			return fmt.Errorf("1%w: %s", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
 			return ErrWrongResponseStatus
