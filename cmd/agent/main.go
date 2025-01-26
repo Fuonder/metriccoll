@@ -115,6 +115,10 @@ func SendMetricsJSON(mc storage.Collection) error {
 			Post(url)
 		if err != nil {
 			fmt.Printf("Errors while sending metrics json: %v\n", err)
+			fmt.Printf("URL: %s\n", url)
+			fmt.Printf("respnse status: %d\n", resp.StatusCode())
+			fmt.Printf("value %f\n", value)
+			fmt.Printf("response body:\n %s", string(resp.Body()))
 			return fmt.Errorf("2%w: %s", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
