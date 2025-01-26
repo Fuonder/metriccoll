@@ -37,8 +37,21 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 			}
 		}
 	}
-	st.metrics = append(st.metrics, metric)
-	return nil
+	if metric.MType == "gauge" {
+		if metric.Value == nil {
+			return ErrInvalidMetricValue
+		}
+		st.metrics = append(st.metrics, metric)
+		return nil
+	} else if metric.MType == "counter" {
+		if metric.Delta == nil {
+			return ErrInvalidMetricValue
+		}
+		st.metrics = append(st.metrics, metric)
+		return nil
+	} else {
+		return fmt.Errorf("metric type: %s is not supported", metric.MType)
+	}
 }
 
 func (st *JSONStorage) GetMetricByName(name string, mType string) (models.Metrics, error) {
