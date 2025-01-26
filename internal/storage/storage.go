@@ -24,9 +24,15 @@ func (ms *memStorage) AppendMetric(metric models.Metrics) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	if metric.MType == "gauge" {
+		if metric.Value == nil {
+			return ErrInvalidMetricValue
+		}
 		ms.gMetric[metric.ID] = models.Gauge(*metric.Value)
 		return nil
 	} else if metric.MType == "counter" {
+		if metric.Delta == nil {
+			return ErrInvalidMetricValue
+		}
 		if metricValue, exists := ms.cMetric[metric.ID]; exists {
 			ms.cMetric[metric.ID] = metricValue + models.Counter(*metric.Delta)
 			return nil
@@ -39,16 +45,22 @@ func (ms *memStorage) AppendMetric(metric models.Metrics) error {
 	}
 }
 
-func (ms *memStorage) GetMetricByName(name string) (models.Metrics, error) {
-	metricValGauge, err := ms.getGaugeMetric(name)
-	if err == nil {
+func (ms *memStorage) GetMetricByName(name string, mType string) (models.Metrics, error) {
+	if mType == "gauge" {
+		metricValGauge, err := ms.getGaugeMetric(name)
+		if err != nil {
+
+		}
 		return models.Metrics{ID: name, MType: "gauge", Value: (*float64)(&metricValGauge)}, nil
-	}
-	metricValCounter, err := ms.getCounterMetric(name)
-	if err == nil {
+	} else if mType == "counter" {
+		metricValCounter, err := ms.getCounterMetric(name)
+		if err != nil {
+			return models.Metrics{}, err
+		}
 		return models.Metrics{ID: name, MType: "counter", Delta: (*int64)(&metricValCounter)}, nil
+	} else {
+		return models.Metrics{}, fmt.Errorf("unknown metric type: %s", mType)
 	}
-	return models.Metrics{}, err
 }
 
 func (ms *memStorage) GetAllMetrics() []models.Metrics {

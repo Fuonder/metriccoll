@@ -46,7 +46,7 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckContentType)
 	router.Get("/", logger.HanlderWithLogger(h.RootHandler))
 	router.Route("/update", func(router chi.Router) {
-		//router.Post("/", -> HANDLER JSON UPDATE)
+		router.Post("/", logger.HanlderWithLogger(h.JSONUpdateHandler))
 		router.Route("/{mType}", func(router chi.Router) {
 			router.Use(h.CheckMetricType)
 			router.Route("/{mName}", func(router chi.Router) {
@@ -63,6 +63,7 @@ func metricRouter(h *server.Handler) chi.Router {
 		})
 	})
 	router.Route("/value", func(router chi.Router) {
+		router.Post("/", logger.HanlderWithLogger(h.JSONGetHandler))
 		// router.Post("/", -> JSON VALUE GET HANDLER)
 		router.Route("/{mType}", func(router chi.Router) {
 			router.Use(h.CheckMetricType)

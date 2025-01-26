@@ -19,11 +19,17 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	for i, existingItem := range st.metrics {
-		if existingItem.ID == metric.ID {
+		if existingItem.ID == metric.ID && existingItem.MType == metric.MType {
 			if metric.MType == "gauge" {
+				if metric.Value == nil {
+					return ErrInvalidMetricValue
+				}
 				st.metrics[i] = metric
 				return nil
 			} else if metric.MType == "counter" {
+				if metric.Delta == nil {
+					return ErrInvalidMetricValue
+				}
 				*st.metrics[i].Delta += *metric.Delta
 				return nil
 			} else {
@@ -35,9 +41,9 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 	return nil
 }
 
-func (st *JSONStorage) GetMetricByName(name string) (models.Metrics, error) {
+func (st *JSONStorage) GetMetricByName(name string, mType string) (models.Metrics, error) {
 	for i, existingItem := range st.metrics {
-		if existingItem.ID == name {
+		if existingItem.ID == name && existingItem.MType == mType {
 			return st.metrics[i], nil
 		}
 	}

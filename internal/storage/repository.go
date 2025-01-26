@@ -6,7 +6,7 @@ import (
 )
 
 type Storage interface {
-	GetMetricByName(name string) (models.Metrics, error)
+	GetMetricByName(name string, mType string) (models.Metrics, error)
 	AppendMetric(metric models.Metrics) error
 	GetAllMetrics() []models.Metrics
 }

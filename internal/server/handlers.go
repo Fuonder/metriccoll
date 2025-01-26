@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/models"
@@ -49,10 +51,10 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("entering value handler")
-	//mType := chi.URLParam(r, "mType")
+	mType := chi.URLParam(r, "mType")
 	mName := chi.URLParam(r, "mName")
 
-	metric, err := h.storage.GetMetricByName(mName)
+	metric, err := h.storage.GetMetricByName(mName, mType)
 	if err != nil {
 		logger.Log.Error("get metric by name error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusNotFound)
@@ -65,27 +67,6 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 		io.WriteString(rw, strconv.FormatInt(*metric.Delta, 10))
 		return
 	}
-
-	//if mType == "gauge" {
-	//	value, err := h.storage.GetGaugeMetric(mName)
-	//	if err != nil {
-	//		logger.Log.Error("gauge metric error", zap.Error(err))
-	//		http.Error(rw, err.Error(), http.StatusNotFound)
-	//	} else {
-	//		io.WriteString(rw, strconv.FormatFloat(float64(value), 'f', -1, 64))
-	//		return
-	//	}
-	//} else if mType == "counter" {
-	//	value, err := h.storage.GetCounterMetric(mName)
-	//	if err != nil {
-	//		logger.Log.Error("counter metric error", zap.Error(err))
-	//		http.Error(rw, err.Error(), http.StatusNotFound)
-	//	} else {
-	//		logger.Log.Debug("leaving value handler")
-	//		io.WriteString(rw, strconv.FormatInt(int64(value), 10))
-	//		return
-	//	}
-	//}
 }
 func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("Updating metric")
@@ -99,15 +80,24 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "gauge", Value: (*float64)(&value)})
 		if err != nil {
 			logger.Log.Error("can not add metric", zap.Error(err))
+			if errors.Is(err, storage.ErrInvalidMetricValue) {
+				http.Error(rw, err.Error(), http.StatusBadRequest)
+				return
+			}
 			http.Error(rw, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 		rw.WriteHeader(http.StatusOK)
 	} else if mType == "counter" {
 		value, _ := models.CheckTypeCounter(mValue)
+
 		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "counter", Delta: (*int64)(&value)})
 		if err != nil {
 			logger.Log.Error("can not add metric", zap.Error(err))
+			if errors.Is(err, storage.ErrInvalidMetricValue) {
+				http.Error(rw, err.Error(), http.StatusBadRequest)
+				return
+			}
 			http.Error(rw, "Internal server error", http.StatusInternalServerError)
 			return
 		}
@@ -116,6 +106,79 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		logger.Log.Error("Invalid metric type, can not add metric")
 		http.Error(rw, "Internal server error", http.StatusInternalServerError)
 	}
+}
+
+func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
+	logger.Log.Debug("entering json update handler")
+	if r.Header.Get("Content-Type") != "application/json" {
+		logger.Log.Error("invalid content type",
+			zap.String("Content-Type", r.Header.Get("Content-Type")))
+		http.Error(rw, "Invalid content type", http.StatusBadRequest)
+		return
+	}
+	var mt models.Metrics
+	if err := json.NewDecoder(r.Body).Decode(&mt); err != nil {
+		logger.Log.Error("json decode error", zap.Error(err))
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	err := h.storage.AppendMetric(mt)
+	if err != nil {
+		logger.Log.Error("can not add metric", zap.Error(err))
+		if errors.Is(err, storage.ErrInvalidMetricValue) {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
+	if err != nil {
+		logger.Log.Error("can not get metric by name", zap.Error(err))
+		if errors.Is(err, storage.ErrInvalidMetricValue) {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	resp, err := json.MarshalIndent(mtRes, "", "    ")
+	if err != nil {
+		logger.Log.Error("json marshal error", zap.Error(err))
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusOK)
+	rw.Write(resp)
+}
+
+func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("Content-Type") != "application/json" {
+		http.Error(rw, "Invalid content type", http.StatusBadRequest)
+	}
+	var metric models.Metrics
+	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	metric = mt
+	resp, err := json.MarshalIndent(metric, "", "    ")
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(http.StatusOK)
+	rw.Write(resp)
 }
 
 func (h *Handler) CheckMethod(next http.Handler) http.Handler {
