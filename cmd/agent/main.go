@@ -106,16 +106,20 @@ func SendMetricsJSON(mc storage.Collection) error {
 		if err != nil {
 			return fmt.Errorf("json marshal: %v", err)
 		}
-
+		fmt.Println("sending")
+		fmt.Println(mt)
 		url := "http://" + CliOpt.NetAddr.String() + "/update/"
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/json").
 			SetBody(out).
 			Post(url)
 		if err != nil {
+			fmt.Printf("Errors while sending metrics json: %v\n", err)
 			return fmt.Errorf("2%w: %s", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
+			fmt.Println("GOT NOT 200 RESPONSE")
+			fmt.Printf("response body:\n %s", string(resp.Body()))
 			return ErrWrongResponseStatus
 		}
 	}
