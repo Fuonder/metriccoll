@@ -175,6 +175,7 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println(metric)
+	logger.Log.Info("METRICS PRESENT", zap.Any("metrics", h.storage.GetAllMetrics()))
 	defer r.Body.Close()
 	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
