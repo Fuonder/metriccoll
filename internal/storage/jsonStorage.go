@@ -24,13 +24,15 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 				if metric.Value == nil {
 					return ErrInvalidMetricValue
 				}
-				st.metrics[i] = metric
+				*st.metrics[i].Value = *metric.Value
+				fmt.Println(st.GetAllMetrics())
 				return nil
 			} else if metric.MType == "counter" {
 				if metric.Delta == nil {
 					return ErrInvalidMetricValue
 				}
 				*st.metrics[i].Delta += *metric.Delta
+				fmt.Println(st.GetAllMetrics())
 				return nil
 			} else {
 				return fmt.Errorf("metric type: %s is not supported", metric.MType)
@@ -42,12 +44,14 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
+		fmt.Println(st.GetAllMetrics())
 		return nil
 	} else if metric.MType == "counter" {
 		if metric.Delta == nil {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
+		fmt.Println(st.GetAllMetrics())
 		return nil
 	} else {
 		return fmt.Errorf("metric type: %s is not supported", metric.MType)
