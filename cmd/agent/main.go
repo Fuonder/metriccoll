@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/go-resty/resty/v2"
 	"log"
@@ -31,7 +33,7 @@ func main() {
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		err = SendMetrics(mc)
+		err = SendMetricsJson(mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
@@ -87,5 +89,84 @@ func SendMetrics(mc storage.Collection) error {
 			return ErrWrongResponseStatus
 		}
 	}
+	return nil
+}
+
+func SendMetricsJson(mc storage.Collection) error {
+	client := resty.New()
+	gMetrics := mc.GetGaugeList()
+	cMetrics := mc.GetCounterList()
+
+	for name, value := range gMetrics {
+		var mt models.Metrics
+		mt.ID = name
+		mt.MType = "gauge"
+		mt.Value = (*float64)(&value)
+		out, err := json.Marshal(mt)
+		if err != nil {
+			return fmt.Errorf("json marshal: %v", err)
+		}
+
+		url := "http://" + CliOpt.NetAddr.String() + "/update/"
+		resp, err := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetBody(out).
+			Post(url)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
+		}
+		if resp.StatusCode() != 200 {
+			return ErrWrongResponseStatus
+		}
+	}
+	for name, value := range cMetrics {
+		var mt models.Metrics
+		mt.ID = name
+		mt.MType = "counter"
+		mt.Delta = (*int64)(&value)
+		out, err := json.Marshal(mt)
+		if err != nil {
+			return fmt.Errorf("json marshal: %v", err)
+		}
+
+		url := "http://" + CliOpt.NetAddr.String() + "/update/"
+		resp, err := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetBody(out).
+			Post(url)
+		if err != nil {
+			return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
+		}
+		if resp.StatusCode() != 200 {
+			return ErrWrongResponseStatus
+		}
+	}
+
+	//for name, value := range gMetrics {
+	//	url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
+	//		"/" + name + "/" + strconv.FormatFloat(float64(value), 'f', -1, 64)
+	//	resp, err := client.R().
+	//		SetHeader("Content-Type", "text/plain").
+	//		Post(url)
+	//	if err != nil {
+	//		return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
+	//	}
+	//	if resp.StatusCode() != 200 {
+	//		return ErrWrongResponseStatus
+	//	}
+	//}
+	//for name, value := range cMetrics {
+	//	url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
+	//		"/" + name + "/" + strconv.FormatInt(int64(value), 10)
+	//	resp, err := client.R().
+	//		SetHeader("Content-Type", "text/plain").
+	//		Post(url)
+	//	if err != nil {
+	//		return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
+	//	}
+	//	if resp.StatusCode() != 200 {
+	//		return ErrWrongResponseStatus
+	//	}
+	//}
 	return nil
 }
