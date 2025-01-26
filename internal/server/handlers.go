@@ -179,7 +179,7 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
 		logger.Log.Info("metric not found", zap.Error(err))
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}
 	metric = mt
