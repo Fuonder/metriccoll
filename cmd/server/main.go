@@ -27,7 +27,7 @@ func run() error {
 		return fmt.Errorf("method run: %v", err)
 	}
 
-	ms, err := storage.NewMemStorage()
+	ms, err := storage.NewJSONStorage()
 	if err != nil {
 		return err
 	}
@@ -46,6 +46,7 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckContentType)
 	router.Get("/", logger.HanlderWithLogger(h.RootHandler))
 	router.Route("/update", func(router chi.Router) {
+		//router.Post("/", -> HANDLER JSON UPDATE)
 		router.Route("/{mType}", func(router chi.Router) {
 			router.Use(h.CheckMetricType)
 			router.Route("/{mName}", func(router chi.Router) {
@@ -62,6 +63,7 @@ func metricRouter(h *server.Handler) chi.Router {
 		})
 	})
 	router.Route("/value", func(router chi.Router) {
+		// router.Post("/", -> JSON VALUE GET HANDLER)
 		router.Route("/{mType}", func(router chi.Router) {
 			router.Use(h.CheckMetricType)
 			router.Route("/{mName}", func(router chi.Router) {

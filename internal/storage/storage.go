@@ -2,30 +2,74 @@ package storage
 
 import (
 	"fmt"
-	model "github.com/Fuonder/metriccoll.git/internal/models"
+	"github.com/Fuonder/metriccoll.git/internal/models"
 	"sync"
 )
 
 type memStorage struct {
-	gMetric map[string]model.Gauge
-	cMetric map[string]model.Counter
+	gMetric map[string]models.Gauge
+	cMetric map[string]models.Counter
 	mu      sync.Mutex
 }
 
 func NewMemStorage() (*memStorage, error) {
 	ms := memStorage{
-		gMetric: make(map[string]model.Gauge),
-		cMetric: make(map[string]model.Counter),
+		gMetric: make(map[string]models.Gauge),
+		cMetric: make(map[string]models.Counter),
 	}
 	return &ms, nil
 }
 
-func (ms *memStorage) AppendGaugeMetric(name string, value model.Gauge) {
+func (ms *memStorage) AppendMetric(metric models.Metrics) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	if metric.MType == "gauge" {
+		ms.gMetric[metric.ID] = models.Gauge(*metric.Value)
+		return nil
+	} else if metric.MType == "counter" {
+		if metricValue, exists := ms.cMetric[metric.ID]; exists {
+			ms.cMetric[metric.ID] = metricValue + models.Counter(*metric.Delta)
+			return nil
+		} else {
+			ms.cMetric[metric.ID] = models.Counter(*metric.Delta)
+			return nil
+		}
+	} else {
+		return fmt.Errorf("unknown metric type: %s", metric.MType)
+	}
+}
+
+func (ms *memStorage) GetMetricByName(name string) (models.Metrics, error) {
+	metricValGauge, err := ms.getGaugeMetric(name)
+	if err == nil {
+		return models.Metrics{ID: name, MType: "gauge", Value: (*float64)(&metricValGauge)}, nil
+	}
+	metricValCounter, err := ms.getCounterMetric(name)
+	if err == nil {
+		return models.Metrics{ID: name, MType: "counter", Delta: (*int64)(&metricValCounter)}, nil
+	}
+	return models.Metrics{}, err
+}
+
+func (ms *memStorage) GetAllMetrics() []models.Metrics {
+	gMetrics := ms.getGaugeList()
+	cMetrics := ms.getCounterList()
+	md := make([]models.Metrics, len(gMetrics)+len(cMetrics))
+	for name, value := range gMetrics {
+		md = append(md, models.Metrics{ID: name, MType: "gauge", Value: (*float64)(&value)})
+	}
+	for name, value := range cMetrics {
+		md = append(md, models.Metrics{ID: name, MType: "counter", Delta: (*int64)(&value)})
+	}
+	return md
+}
+
+func (ms *memStorage) appendGaugeMetric(name string, value models.Gauge) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	ms.gMetric[name] = value
 }
-func (ms *memStorage) AppendCounterMetric(name string, value model.Counter) {
+func (ms *memStorage) appendCounterMetric(name string, value models.Counter) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	if metricValue, exists := ms.cMetric[name]; exists {
@@ -35,26 +79,26 @@ func (ms *memStorage) AppendCounterMetric(name string, value model.Counter) {
 	}
 }
 
-func (ms *memStorage) GetGaugeMetric(name string) (model.Gauge, error) {
+func (ms *memStorage) getGaugeMetric(name string) (models.Gauge, error) {
 	metric, ok := ms.gMetric[name]
 	if !ok {
-		return model.Gauge(0), fmt.Errorf("%w: %s", ErrMetricNotFound, name)
+		return models.Gauge(0), fmt.Errorf("%w: %s", ErrMetricNotFound, name)
 	}
 	return metric, nil
 }
 
-func (ms *memStorage) GetGaugeList() map[string]model.Gauge {
+func (ms *memStorage) getGaugeList() map[string]models.Gauge {
 	return ms.gMetric
 }
 
-func (ms *memStorage) GetCounterMetric(name string) (model.Counter, error) {
+func (ms *memStorage) getCounterMetric(name string) (models.Counter, error) {
 	metric, ok := ms.cMetric[name]
 	if !ok {
-		return model.Counter(0), fmt.Errorf("%w: %s", ErrMetricNotFound, name)
+		return models.Counter(0), fmt.Errorf("%w: %s", ErrMetricNotFound, name)
 	}
 	return metric, nil
 }
 
-func (ms *memStorage) GetCounterList() map[string]model.Counter {
+func (ms *memStorage) getCounterList() map[string]models.Counter {
 	return ms.cMetric
 }

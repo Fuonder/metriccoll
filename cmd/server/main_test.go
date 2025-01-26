@@ -60,7 +60,7 @@ func TestMetricRouter(t *testing.T) {
 			name:        "NegativeWrongContentType",
 			url:         "/update/counter/cMetric/4",
 			method:      http.MethodPost,
-			contentType: "application/json",
+			contentType: "application/json111",
 			want:        http.StatusBadRequest,
 		},
 		{
@@ -139,7 +139,7 @@ func TestMetricRouter(t *testing.T) {
 			wantResp:    "metric with such key is not found: negative\n",
 		},
 	}
-	ms, err := storage.NewMemStorage()
+	ms, err := storage.NewJSONStorage()
 	h := server.NewHandler(ms)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
