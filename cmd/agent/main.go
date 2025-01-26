@@ -33,7 +33,7 @@ func main() {
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		err = SendMetricsJson(mc)
+		err = SendMetricsJSON(mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
@@ -92,7 +92,7 @@ func SendMetrics(mc storage.Collection) error {
 	return nil
 }
 
-func SendMetricsJson(mc storage.Collection) error {
+func SendMetricsJSON(mc storage.Collection) error {
 	client := resty.New()
 	gMetrics := mc.GetGaugeList()
 	cMetrics := mc.GetCounterList()
