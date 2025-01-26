@@ -109,6 +109,7 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
 	logger.Log.Debug("entering json update handler")
 	if r.Header.Get("Content-Type") != "application/json" {
 		logger.Log.Error("invalid content type",
@@ -150,7 +151,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	rw.Header().Set("Content-Type", "application/json")
+
 	rw.WriteHeader(http.StatusOK)
 	rw.Write(resp)
 }
