@@ -19,21 +19,25 @@ var (
 )
 
 func main() {
+	fmt.Println("Starting agent")
 	mc, err := storage.NewMetricsCollection()
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("metric collection creation success")
 
 	err = parseFlags()
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("parse flags success")
 
 	ch := make(chan struct{})
 	mc.UpdateValues(CliOpt.PollInterval, ch)
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
+		fmt.Println("sending metrics")
 		err = SendMetricsJSON(mc)
 		if err != nil {
 			close(ch)
@@ -96,12 +100,15 @@ func SendMetrics(mc storage.Collection) error {
 	return nil
 }
 
+var globalcounter = 0
+
 func SendMetricsJSON(mc storage.Collection) error {
 	client := resty.New()
 	gMetrics := mc.GetGaugeList()
 	cMetrics := mc.GetCounterList()
 
 	for name, value := range gMetrics {
+		globalcounter++
 		var mt, res models.Metrics
 		mt.ID = name
 		mt.MType = "gauge"
@@ -112,7 +119,8 @@ func SendMetricsJSON(mc storage.Collection) error {
 		//}
 		fmt.Println("sending")
 		fmt.Println(mt)
-		url := "http://" + CliOpt.NetAddr.String() + "/update/"
+		fmt.Println(globalcounter)
+		url := "http://" + CliOpt.NetAddr.String() + "/update"
 		cli := client.R()
 		cli.SetHeader("Content-Type", "application/json")
 		//cli.SetHeader("Accept", "application/json")
@@ -140,13 +148,15 @@ func SendMetricsJSON(mc storage.Collection) error {
 		mt.ID = name
 		mt.MType = "counter"
 		mt.Delta = (*int64)(&value)
+		globalcounter++
 		//out, err := json.Marshal(mt)
 		//if err != nil {
 		//	return fmt.Errorf("json marshal: %v", err)
 		//}
 		fmt.Println("-----------------------------------------------------sending")
 		fmt.Println(mt)
-		url := "http://" + CliOpt.NetAddr.String() + "/update/"
+		fmt.Println(globalcounter)
+		url := "http://" + CliOpt.NetAddr.String() + "/update"
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/json").
 			SetBody(&mt).
