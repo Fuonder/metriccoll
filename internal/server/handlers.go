@@ -292,6 +292,7 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 		if supportsGzip {
 			cw := newGzipWriter(rw)
 			ow = cw
+			ow.Header().Set("Content-Encoding", "gzip")
 			defer cw.Close()
 		}
 		contentEncoding := r.Header.Get("Content-Encoding")
