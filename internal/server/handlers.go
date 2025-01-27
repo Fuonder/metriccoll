@@ -110,13 +110,14 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	logger.Log.Debug("entering json update handler")
+	logger.Log.Info("entering json update handler")
 	if r.Header.Get("Content-Type") != "application/json" {
-		logger.Log.Debug("invalid content type",
+		logger.Log.Info("invalid content type",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 		return
 	}
+	logger.Log.Info("content-type - ok")
 	var mt models.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&mt); err != nil {
 		logger.Log.Debug("json decode error", zap.Error(err))
@@ -124,8 +125,9 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+	logger.Log.Info("request body decode - ok", zap.Any("metric", mt))
 	//fmt.Println(mt)
-
+	logger.Log.Info("Updating metric in storage")
 	err := h.storage.AppendMetric(mt)
 	if err != nil {
 		logger.Log.Debug("can not add metric", zap.Error(err))
@@ -138,6 +140,8 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
+	logger.Log.Info("Updating metric in storage - SUCCESS")
+	logger.Log.Info("Creating response metric")
 	mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
 	if err != nil {
 		logger.Log.Error("can not get metric by name", zap.Error(err))
@@ -150,15 +154,19 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
+	logger.Log.Info("Creating response metric - SUCCESS")
+	logger.Log.Info("Marshaling response")
 	resp, err := json.Marshal(mtRes)
 	if err != nil {
 		logger.Log.Debug("json marshal error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
+	} else {
+		logger.Log.Info("Marshaling ok - sending respinse with status 200")
+		rw.WriteHeader(http.StatusOK)
+		rw.Write(resp)
 	}
 
-	rw.WriteHeader(http.StatusOK)
-	rw.Write(resp)
 }
 
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {

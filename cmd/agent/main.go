@@ -106,7 +106,31 @@ func SendMetricsJSON(mc storage.Collection) error {
 	client := resty.New()
 	gMetrics := mc.GetGaugeList()
 	cMetrics := mc.GetCounterList()
-
+	for name, value := range cMetrics {
+		var mt models.Metrics
+		mt.ID = name
+		mt.MType = "counter"
+		mt.Delta = (*int64)(&value)
+		globalcounter++
+		//out, err := json.Marshal(mt)
+		//if err != nil {
+		//	return fmt.Errorf("json marshal: %v", err)
+		//}
+		fmt.Println("-----------------------------------------------------sending")
+		fmt.Println(mt)
+		fmt.Println(globalcounter)
+		url := "http://" + CliOpt.NetAddr.String() + "/update"
+		resp, err := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetBody(&mt).
+			Post(url)
+		if err != nil {
+			return fmt.Errorf("1%w: %s", ErrCouldNotSendRequest, err)
+		}
+		if resp.StatusCode() != 200 {
+			return ErrWrongResponseStatus
+		}
+	}
 	for name, value := range gMetrics {
 		globalcounter++
 		var mt, res models.Metrics
@@ -143,30 +167,6 @@ func SendMetricsJSON(mc storage.Collection) error {
 			return ErrWrongResponseStatus
 		}
 	}
-	for name, value := range cMetrics {
-		var mt models.Metrics
-		mt.ID = name
-		mt.MType = "counter"
-		mt.Delta = (*int64)(&value)
-		globalcounter++
-		//out, err := json.Marshal(mt)
-		//if err != nil {
-		//	return fmt.Errorf("json marshal: %v", err)
-		//}
-		fmt.Println("-----------------------------------------------------sending")
-		fmt.Println(mt)
-		fmt.Println(globalcounter)
-		url := "http://" + CliOpt.NetAddr.String() + "/update"
-		resp, err := client.R().
-			SetHeader("Content-Type", "application/json").
-			SetBody(&mt).
-			Post(url)
-		if err != nil {
-			return fmt.Errorf("1%w: %s", ErrCouldNotSendRequest, err)
-		}
-		if resp.StatusCode() != 200 {
-			return ErrWrongResponseStatus
-		}
-	}
+
 	return nil
 }
