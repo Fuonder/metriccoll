@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,12 +45,15 @@ func checkServerConnection(url string) error {
 }
 
 func main() {
+	if err := logger.Initialize("Info"); err != nil {
+		panic(err)
+	}
 	logger.Log.Info("Starting agent")
 	mc, err := storage.NewMetricsCollection()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("metric collection creation success")
+	//fmt.Println("metric collection creation success")
 
 	err = parseFlags()
 	if err != nil {
@@ -76,6 +81,7 @@ func main() {
 				time.Sleep(2 * time.Second)
 				log.Fatal(err)
 			}
+			logger.Log.Info("sending metrics failed", zap.Error(err))
 		}
 		//err = testAll()
 		//if err != nil {
@@ -150,9 +156,16 @@ func SendMetricsJSON(mc storage.Collection) error {
 		if err != nil {
 			return fmt.Errorf("failed to marshal request body: %w", err)
 		}
+		cBody, err := gzipCompress(body)
+		if err != nil {
+			return fmt.Errorf("failed to compress request body: %w", err)
+		}
+
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/json").
-			SetBody(body).
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Accept-Encoding", "gzip").
+			SetBody(cBody).
 			Post(url)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
@@ -168,11 +181,21 @@ func SendMetricsJSON(mc storage.Collection) error {
 			Delta: nil,
 			Value: (*float64)(&value),
 		}
+		body, err := json.Marshal(mt)
+		if err != nil {
+			return fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		cBody, err := gzipCompress(body)
+		if err != nil {
+			return fmt.Errorf("failed to compress request body: %w", err)
+		}
 
-		cli := client.R()
-		cli.SetHeader("Content-Type", "application/json")
-		cli.SetBody(&mt)
-		resp, err := cli.Post(url)
+		resp, err := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Accept-Encoding", "gzip").
+			SetBody(cBody).
+			Post(url)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
 		}
@@ -183,4 +206,40 @@ func SendMetricsJSON(mc storage.Collection) error {
 		}
 	}
 	return nil
+}
+
+func gzipCompress(data []byte) ([]byte, error) {
+	var buffer bytes.Buffer
+	writer, err := gzip.NewWriterLevel(&buffer, gzip.BestCompression)
+	if err != nil {
+		return nil, fmt.Errorf("failed init compress writer: %v", err)
+	}
+	_, err = writer.Write(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed write data to compress temporary buffer: %v", err)
+	}
+	err = writer.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed compress data: %v", err)
+	}
+
+	logger.Log.Info("Compression stats",
+		zap.Int("Given", len(data)),
+		zap.Int("Compressed", len(buffer.Bytes())))
+	return buffer.Bytes(), nil
+}
+
+func gzipDecompress(data []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed init compress reader: %v", err)
+	}
+	defer reader.Close()
+
+	var buffer bytes.Buffer
+	_, err = buffer.ReadFrom(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed decompress data: %v", err)
+	}
+	return buffer.Bytes(), nil
 }
