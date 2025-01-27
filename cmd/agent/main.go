@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
@@ -9,6 +11,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 	"log"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -107,10 +110,13 @@ func SendMetricsJSON(mc storage.Collection) error {
 	gMetrics := mc.GetGaugeList()
 	cMetrics := mc.GetCounterList()
 	for name, value := range cMetrics {
-		var mt models.Metrics
-		mt.ID = name
-		mt.MType = "counter"
-		mt.Delta = (*int64)(&value)
+		mt := models.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: (*int64)(&value),
+			Value: nil,
+		}
+
 		globalcounter++
 		//out, err := json.Marshal(mt)
 		//if err != nil {
@@ -120,16 +126,44 @@ func SendMetricsJSON(mc storage.Collection) error {
 		fmt.Println(mt)
 		fmt.Println(globalcounter)
 		url := "http://" + CliOpt.NetAddr.String() + "/update"
-		resp, err := client.R().
-			SetHeader("Content-Type", "application/json").
-			SetBody(&mt).
-			Post(url)
+		body, err := json.Marshal(mt)
 		if err != nil {
-			return fmt.Errorf("1%w: %s", ErrCouldNotSendRequest, err)
+			return fmt.Errorf("failed to marshal request body: %w", err)
 		}
-		if resp.StatusCode() != 200 {
-			return ErrWrongResponseStatus
+
+		// Create the request
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
 		}
+
+		// Set the headers
+		req.Header.Set("Content-Type", "application/json")
+
+		// Send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Errorf("could not send request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		// Check the response status
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("unexpected response status: %d", resp.StatusCode)
+		}
+
+		return nil
+		//resp, err := client.R().
+		//	SetHeader("Content-Type", "application/json").
+		//	SetBody(&mt).
+		//	Post(url)
+		//if err != nil {
+		//	return fmt.Errorf("1%w: %s", ErrCouldNotSendRequest, err)
+		//}
+		//if resp.StatusCode() != 200 {
+		//	return ErrWrongResponseStatus
+		//}
 	}
 	for name, value := range gMetrics {
 		globalcounter++
