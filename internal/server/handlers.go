@@ -198,6 +198,7 @@ func (h *Handler) CheckMethod(next http.Handler) http.Handler {
 		if r.Method != http.MethodPost && r.Method != http.MethodGet {
 			logger.Log.Info("wrong method", zap.String("method", r.Method))
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
 		} else {
 			logger.Log.Debug("method - OK")
 			next.ServeHTTP(w, r)
@@ -215,6 +216,7 @@ func (h *Handler) CheckContentType(next http.Handler) http.Handler {
 			logger.Log.Info("wrong content type",
 				zap.String("Content-Type", r.Header.Get("Content-Type")))
 			http.Error(w, "invalid content type", http.StatusBadRequest)
+			return
 		} else {
 			logger.Log.Debug("content type - OK")
 			next.ServeHTTP(w, r)
@@ -230,6 +232,7 @@ func (h *Handler) CheckMetricType(next http.Handler) http.Handler {
 			logger.Log.Info("wrong metric type",
 				zap.String("Type", mType))
 			http.Error(w, "invalid metric type", http.StatusBadRequest)
+			return
 		} else {
 			logger.Log.Debug("metric type - OK")
 			next.ServeHTTP(w, r)
@@ -244,6 +247,7 @@ func (h *Handler) CheckMetricName(next http.Handler) http.Handler {
 		if strings.TrimSpace(mName) == "" {
 			logger.Log.Info("empty metric name")
 			http.Error(rw, "metric name is required", http.StatusNotFound)
+			return
 		} else {
 			logger.Log.Debug("metric name - OK")
 			next.ServeHTTP(rw, r)
@@ -267,9 +271,36 @@ func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
 			logger.Log.Info("invalid metric value",
 				zap.Any("value", mValue))
 			http.Error(rw, "invalid metric value", http.StatusBadRequest)
+			return
 		} else {
 			logger.Log.Debug("metric value - OK")
 			next.ServeHTTP(rw, r)
 		}
 	})
+}
+
+func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		ow := rw
+		acceptEncoding := r.Header.Get("Accept-Encoding")
+		supportsGzip := strings.Contains(acceptEncoding, "gzip")
+		if supportsGzip {
+			cw := newGzipWriter(rw)
+			ow = cw
+			defer cw.Close()
+		}
+		contentEncoding := r.Header.Get("Content-Encoding")
+		sendsGzip := strings.Contains(contentEncoding, "gzip")
+		if sendsGzip {
+			cr, err := newGzipReader(r.Body)
+			if err != nil {
+				rw.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			r.Body = cr
+			defer cr.Close()
+		}
+		h.ServeHTTP(ow, r)
+
+	}
 }

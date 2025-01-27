@@ -45,32 +45,32 @@ func metricRouter(h *server.Handler) chi.Router {
 
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
-	router.Get("/", logger.HanlderWithLogger(h.RootHandler))
+	router.Get("/", logger.HanlderWithLogger(server.GzipMiddleware(h.RootHandler)))
 	router.Route("/update", func(router chi.Router) {
-		router.Post("/", logger.HanlderWithLogger(h.JSONUpdateHandler))
+		router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.JSONUpdateHandler)))
 		router.Route("/{mType}", func(router chi.Router) {
 			router.Use(h.CheckMetricType)
 			router.Route("/{mName}", func(router chi.Router) {
 				router.Use(h.CheckMetricName)
-				router.Post("/", logger.HanlderWithLogger(func(rw http.ResponseWriter, r *http.Request) {
+				router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(func(rw http.ResponseWriter, r *http.Request) {
 					logger.Log.Debug("no metric value has given")
 					http.Error(rw, "incorrect metric value", http.StatusBadRequest)
-				}))
+				})))
 				router.Route("/{mValue}", func(router chi.Router) {
 					router.Use(h.CheckMetricValue)
-					router.Post("/", logger.HanlderWithLogger(h.UpdateHandler))
+					router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.UpdateHandler)))
 				})
 			})
 		})
 	})
 	router.Route("/value", func(router chi.Router) {
-		router.Post("/", logger.HanlderWithLogger(h.JSONGetHandler))
+		router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.JSONGetHandler)))
 		// router.Post("/", -> JSON VALUE GET HANDLER)
 		router.Route("/{mType}", func(router chi.Router) {
 			router.Use(h.CheckMetricType)
 			router.Route("/{mName}", func(router chi.Router) {
 				router.Use(h.CheckMetricName)
-				router.Get("/", logger.HanlderWithLogger(h.ValueHandler))
+				router.Get("/", logger.HanlderWithLogger(server.GzipMiddleware(h.ValueHandler)))
 			})
 		})
 	})
