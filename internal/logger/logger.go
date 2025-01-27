@@ -29,7 +29,7 @@ func HanlderWithLogger(h http.HandlerFunc) http.HandlerFunc {
 	logFn := func(rw http.ResponseWriter, r *http.Request) {
 		reqData := NewRequestData()
 		reqData.Set(r.URL.Path, r.Method)
-		Log.Debug("Got request",
+		Log.Info("Got request",
 			zap.String("URI", reqData.url),
 			zap.String("Method", reqData.method),
 		)
@@ -38,11 +38,11 @@ func HanlderWithLogger(h http.HandlerFunc) http.HandlerFunc {
 		lw := NewLoggingResponseWriter(rw, respData)
 
 		h.ServeHTTP(lw, r)
-		Log.Debug("Sending response",
+		Log.Info("Sending response",
 			zap.Int("Status", respData.statusCode),
 			zap.Int("Response Size", respData.respSizeB),
 		)
-		Log.Debug("Time spent processing request",
+		Log.Info("Time spent processing request",
 			zap.Any("Time spent", time.Since(reqData.timeStart)),
 		)
 	}

@@ -56,7 +56,7 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 
 	metric, err := h.storage.GetMetricByName(mName, mType)
 	if err != nil {
-		logger.Log.Error("get metric by name error", zap.Error(err))
+		logger.Log.Info("get metric by name error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -79,7 +79,7 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		value, _ := models.CheckTypeGauge(mValue)
 		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "gauge", Value: (*float64)(&value)})
 		if err != nil {
-			logger.Log.Error("can not add metric", zap.Error(err))
+			logger.Log.Info("can not add metric", zap.Error(err))
 			if errors.Is(err, storage.ErrInvalidMetricValue) {
 				http.Error(rw, err.Error(), http.StatusBadRequest)
 				return
@@ -93,7 +93,7 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "counter", Delta: (*int64)(&value)})
 		if err != nil {
-			logger.Log.Error("can not add metric", zap.Error(err))
+			logger.Log.Info("can not add metric", zap.Error(err))
 			if errors.Is(err, storage.ErrInvalidMetricValue) {
 				http.Error(rw, err.Error(), http.StatusBadRequest)
 				return
@@ -103,21 +103,20 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		}
 		rw.WriteHeader(http.StatusOK)
 	} else {
-		logger.Log.Error("Invalid metric type, can not add metric")
+		logger.Log.Info("Invalid metric type, can not add metric")
 		http.Error(rw, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
 func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	logger.Log.Info("entering json update handler")
+	logger.Log.Debug("entering json update handler")
 	if r.Header.Get("Content-Type") != "application/json" {
 		logger.Log.Info("invalid content type",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 		return
 	}
-	logger.Log.Info("content-type - ok")
 	var mt models.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&mt); err != nil {
 		logger.Log.Debug("json decode error", zap.Error(err))
@@ -125,9 +124,6 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	logger.Log.Info("request body decode - ok", zap.Any("metric", mt))
-	//fmt.Println(mt)
-	logger.Log.Info("Updating metric in storage")
 	err := h.storage.AppendMetric(mt)
 	if err != nil {
 		logger.Log.Debug("can not add metric", zap.Error(err))
@@ -140,25 +136,22 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	logger.Log.Info("Updating metric in storage - SUCCESS")
-	logger.Log.Info("Creating response metric")
 	mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
 	if err != nil {
-		logger.Log.Error("can not get metric by name", zap.Error(err))
+		logger.Log.Info("can not get metric by name", zap.Error(err))
 		if errors.Is(err, storage.ErrInvalidMetricValue) {
-			logger.Log.Debug("invalid metric value")
+			logger.Log.Info("invalid metric value")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Log.Debug("other error then getting metric")
+		logger.Log.Info("other error then getting metric")
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	logger.Log.Info("Creating response metric - SUCCESS")
-	logger.Log.Info("Marshaling response")
+
 	resp, err := json.Marshal(mtRes)
 	if err != nil {
-		logger.Log.Debug("json marshal error", zap.Error(err))
+		logger.Log.Info("json marshal error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	} else {
@@ -172,33 +165,30 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if r.Header.Get("Content-Type") != "application/json" {
-		logger.Log.Debug("Invalid content type !!!!",
+		logger.Log.Info("Invalid content type",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 	}
 	var metric models.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
-		logger.Log.Debug("Can not parse json request", zap.Error(err))
+		logger.Log.Info("Can not parse json request", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	//fmt.Println(metric)
-	//logger.Log.Debug("METRICS PRESENT", zap.Any("metrics", h.storage.GetAllMetrics()))
 	defer r.Body.Close()
 	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
-		logger.Log.Debug("metric not found", zap.Error(err))
+		logger.Log.Info("metric not found", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}
 	resp, err := json.MarshalIndent(mt, "", "    ")
 	if err != nil {
-		logger.Log.Debug("can not create response", zap.Error(err))
+		logger.Log.Info("can not create response", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	rw.WriteHeader(http.StatusOK)
-	logger.Log.Debug("SENDING RESPONSE", zap.String("resp", string(resp)))
 	rw.Write(resp)
 }
 
@@ -206,7 +196,7 @@ func (h *Handler) CheckMethod(next http.Handler) http.Handler {
 	logger.Log.Debug("checking method")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost && r.Method != http.MethodGet {
-			logger.Log.Error("wrong method", zap.String("method", r.Method))
+			logger.Log.Info("wrong method", zap.String("method", r.Method))
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		} else {
 			logger.Log.Debug("method - OK")
@@ -222,7 +212,7 @@ func (h *Handler) CheckContentType(next http.Handler) http.Handler {
 			r.Header.Get("Content-Type") != "text/plain; charset=UTF-8" &&
 			r.Header.Get("Content-Type") != "text/plain; charset=utf-8" &&
 			r.Header.Get("Content-Type") != "" {
-			logger.Log.Error("wrong content type",
+			logger.Log.Info("wrong content type",
 				zap.String("Content-Type", r.Header.Get("Content-Type")))
 			http.Error(w, "invalid content type", http.StatusBadRequest)
 		} else {
@@ -237,7 +227,7 @@ func (h *Handler) CheckMetricType(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mType := chi.URLParam(r, "mType")
 		if mType != "counter" && mType != "gauge" {
-			logger.Log.Error("wrong metric type",
+			logger.Log.Info("wrong metric type",
 				zap.String("Type", mType))
 			http.Error(w, "invalid metric type", http.StatusBadRequest)
 		} else {
@@ -252,7 +242,7 @@ func (h *Handler) CheckMetricName(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		mName := chi.URLParam(r, "mName")
 		if strings.TrimSpace(mName) == "" {
-			logger.Log.Error("empty metric name")
+			logger.Log.Info("empty metric name")
 			http.Error(rw, "metric name is required", http.StatusNotFound)
 		} else {
 			logger.Log.Debug("metric name - OK")
@@ -274,7 +264,7 @@ func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
 			_, err = models.CheckTypeCounter(mValue)
 		}
 		if err != nil {
-			logger.Log.Error("invalid metric value",
+			logger.Log.Info("invalid metric value",
 				zap.Any("value", mValue))
 			http.Error(rw, "invalid metric value", http.StatusBadRequest)
 		} else {

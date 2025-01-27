@@ -20,7 +20,7 @@ var (
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
 
-func CheckServerConnection(url string) error {
+func checkServerConnection(url string) error {
 	// Устанавливаем таймаут для запроса
 	client := http.Client{
 		Timeout: 5 * time.Second, // Таймаут 5 секунд
@@ -43,7 +43,7 @@ func CheckServerConnection(url string) error {
 }
 
 func main() {
-	fmt.Println("Starting agent")
+	logger.Log.Info("Starting agent")
 	mc, err := storage.NewMetricsCollection()
 	if err != nil {
 		log.Fatal(err)
@@ -54,21 +54,21 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("parse flags success")
+	logger.Log.Info("parse flags success")
 
-	err = CheckServerConnection("http://" + CliOpt.NetAddr.String() + "/")
-	if err != nil {
-		fmt.Println("Connection check failed:", err)
-	} else {
-		fmt.Println("Server is reachable!")
-	}
+	//err = checkServerConnection("http://" + CliOpt.NetAddr.String() + "/")
+	//if err != nil {
+	//	fmt.Println("Connection check failed:", err)
+	//} else {
+	//	fmt.Println("Server is reachable!")
+	//}
 
 	ch := make(chan struct{})
 	mc.UpdateValues(CliOpt.PollInterval, ch)
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		fmt.Println("sending metrics")
+		logger.Log.Info("sending metrics")
 		err = SendMetricsJSON(mc)
 		if err != nil {
 			if !errors.Is(err, ErrCouldNotSendRequest) {
@@ -133,8 +133,6 @@ func SendMetrics(mc storage.Collection) error {
 	return nil
 }
 
-var globalcounter = 0
-
 func SendMetricsJSON(mc storage.Collection) error {
 	client := resty.New()
 	gMetrics := mc.GetGaugeList()
@@ -148,14 +146,6 @@ func SendMetricsJSON(mc storage.Collection) error {
 			Value: nil,
 		}
 
-		globalcounter++
-		//out, err := json.Marshal(mt)
-		//if err != nil {
-		//	return fmt.Errorf("json marshal: %v", err)
-		//}
-		fmt.Println("-----------------------------------------------------sending")
-		fmt.Println(mt)
-		fmt.Println(globalcounter)
 		body, err := json.Marshal(mt)
 		if err != nil {
 			return fmt.Errorf("failed to marshal request body: %w", err)
@@ -172,40 +162,25 @@ func SendMetricsJSON(mc storage.Collection) error {
 		}
 	}
 	for name, value := range gMetrics {
-		globalcounter++
-		var mt, res models.Metrics
-		mt.ID = name
-		mt.MType = "gauge"
-		mt.Value = (*float64)(&value)
-		//out, err := json.Marshal(mt)
-		//if err != nil {
-		//	return fmt.Errorf("json marshal: %v", err)
-		//}
-		fmt.Println("sending")
-		fmt.Println(mt)
-		fmt.Println(globalcounter)
+		mt := models.Metrics{
+			ID:    name,
+			MType: "gauge",
+			Delta: nil,
+			Value: (*float64)(&value),
+		}
+
 		cli := client.R()
 		cli.SetHeader("Content-Type", "application/json")
-		//cli.SetHeader("Accept", "application/json")
 		cli.SetBody(&mt)
-		cli.SetResult(res)
 		resp, err := cli.Post(url)
 		if err != nil {
-			fmt.Printf("Errors while sending metrics json: %v\n", err)
-			fmt.Printf("URL: %s\n", url)
-			fmt.Printf("respnse status: %d\n", resp.StatusCode())
-			fmt.Printf("value %f\n", value)
-			fmt.Printf("response body:\n %s", string(resp.Body()))
-			fmt.Printf("result:\n")
-			fmt.Println(res)
 			return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
-			fmt.Println("GOT NOT 200 RESPONSE")
-			fmt.Printf("response body:\n %s", string(resp.Body()))
+			logger.Log.Debug("response body",
+				zap.String("resp body", string(resp.Body())))
 			return ErrWrongResponseStatus
 		}
 	}
-
 	return nil
 }

@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	model "github.com/Fuonder/metriccoll.git/internal/models"
 	"math/rand/v2"
@@ -72,7 +71,6 @@ func (mc *MetricsCollection) UpdateValues(interval time.Duration, stopChan chan 
 				logger.Log.Debug("Stopping metrics collection")
 				return
 			default:
-				fmt.Println("Updating metrics collection")
 				logger.Log.Info("Updating metrics collection")
 				mc.ReadValues()
 				time.Sleep(interval)
