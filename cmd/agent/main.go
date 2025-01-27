@@ -33,7 +33,7 @@ func main() {
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		err = SendMetricsJSON(mc)
+		err = SendMetrics(mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
