@@ -98,7 +98,7 @@ func SendMetricsJSON(mc storage.Collection) error {
 	cMetrics := mc.GetCounterList()
 
 	for name, value := range gMetrics {
-		var mt models.Metrics
+		var mt, res models.Metrics
 		mt.ID = name
 		mt.MType = "gauge"
 		mt.Value = (*float64)(&value)
@@ -109,16 +109,21 @@ func SendMetricsJSON(mc storage.Collection) error {
 		fmt.Println("sending")
 		fmt.Println(mt)
 		url := "http://" + CliOpt.NetAddr.String() + "/update/"
-		resp, err := client.R().
-			SetHeader("Content-Type", "application/json").
-			SetBody(out).
-			Post(url)
+		cli := client.R()
+		cli.SetHeader("Content-Type", "application/json")
+		cli.SetHeader("Accept", "application/json")
+		cli.SetBody(out)
+		cli.SetResult(res)
+		resp, err := cli.Post(url)
+		defer resp.RawBody().Close()
 		if err != nil {
 			fmt.Printf("Errors while sending metrics json: %v\n", err)
 			fmt.Printf("URL: %s\n", url)
 			fmt.Printf("respnse status: %d\n", resp.StatusCode())
 			fmt.Printf("value %f\n", value)
 			fmt.Printf("response body:\n %s", string(resp.Body()))
+			fmt.Printf("result:\n")
+			fmt.Println(res)
 			return fmt.Errorf("2%w: %s", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
@@ -149,32 +154,5 @@ func SendMetricsJSON(mc storage.Collection) error {
 			return ErrWrongResponseStatus
 		}
 	}
-
-	//for name, value := range gMetrics {
-	//	url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
-	//		"/" + name + "/" + strconv.FormatFloat(float64(value), 'f', -1, 64)
-	//	resp, err := client.R().
-	//		SetHeader("Content-Type", "text/plain").
-	//		Post(url)
-	//	if err != nil {
-	//		return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
-	//	}
-	//	if resp.StatusCode() != 200 {
-	//		return ErrWrongResponseStatus
-	//	}
-	//}
-	//for name, value := range cMetrics {
-	//	url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
-	//		"/" + name + "/" + strconv.FormatInt(int64(value), 10)
-	//	resp, err := client.R().
-	//		SetHeader("Content-Type", "text/plain").
-	//		Post(url)
-	//	if err != nil {
-	//		return fmt.Errorf("%w: %s", ErrCouldNotSendRequest, err)
-	//	}
-	//	if resp.StatusCode() != 200 {
-	//		return ErrWrongResponseStatus
-	//	}
-	//}
 	return nil
 }
