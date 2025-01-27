@@ -32,6 +32,8 @@ func HanlderWithLogger(h http.HandlerFunc) http.HandlerFunc {
 		Log.Info("Got request",
 			zap.String("URI", reqData.url),
 			zap.String("Method", reqData.method),
+			zap.String("Content-Type", r.Header.Get("Content-Type")),
+			zap.String("Accept-Encoding", r.Header.Get("Accept-Encoding")),
 		)
 
 		respData := NewResponseData()
@@ -41,6 +43,8 @@ func HanlderWithLogger(h http.HandlerFunc) http.HandlerFunc {
 		Log.Info("Sending response",
 			zap.Int("Status", respData.statusCode),
 			zap.Int("Response Size", respData.respSizeB),
+			zap.String("Content-Type", respData.respContentType),
+			zap.String("Content-Encoding", respData.respContentEncoding),
 		)
 		Log.Info("Time spent processing request",
 			zap.Any("Time spent", time.Since(reqData.timeStart)),
