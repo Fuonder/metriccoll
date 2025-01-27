@@ -115,7 +115,6 @@ func SendMetricsJSON(mc storage.Collection) error {
 		cli.SetBody(out)
 		cli.SetResult(res)
 		resp, err := cli.Post(url)
-		defer resp.RawBody().Close()
 		if err != nil {
 			fmt.Printf("Errors while sending metrics json: %v\n", err)
 			fmt.Printf("URL: %s\n", url)

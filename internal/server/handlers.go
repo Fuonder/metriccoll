@@ -24,11 +24,11 @@ func NewHandler(storage storage.Storage) *Handler {
 }
 
 func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
-	logger.Log.Info("Entering root handler")
+	logger.Log.Debug("Entering root handler")
 
 	rw.Header().Set("Content-Type", "text/html")
 	var metricList []models.Metrics
-	logger.Log.Info("creating metric list")
+	logger.Log.Debug("creating metric list")
 
 	metricList = h.storage.GetAllMetrics()
 	var stringMetricList []string
@@ -44,13 +44,13 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 				strconv.FormatInt(*m.Delta, 10)))
 		}
 	}
-	logger.Log.Info("final metric list",
+	logger.Log.Debug("final metric list",
 		zap.String("metrics", strings.Join(stringMetricList, ", ")))
 	io.WriteString(rw, strings.Join(stringMetricList, ", "))
 }
 
 func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
-	logger.Log.Info("entering value handler")
+	logger.Log.Debug("entering value handler")
 	mType := chi.URLParam(r, "mType")
 	mName := chi.URLParam(r, "mName")
 
@@ -69,7 +69,7 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
-	logger.Log.Info("Updating metric")
+	logger.Log.Debug("Updating metric")
 
 	mType := chi.URLParam(r, "mType")
 	mName := chi.URLParam(r, "mName")
@@ -110,31 +110,31 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	logger.Log.Info("entering json update handler")
+	logger.Log.Debug("entering json update handler")
 	if r.Header.Get("Content-Type") != "application/json" {
-		logger.Log.Info("invalid content type",
+		logger.Log.Debug("invalid content type",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 		return
 	}
 	var mt models.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&mt); err != nil {
-		logger.Log.Info("json decode error", zap.Error(err))
+		logger.Log.Debug("json decode error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
-	fmt.Println(mt)
+	//fmt.Println(mt)
 
 	err := h.storage.AppendMetric(mt)
 	if err != nil {
-		logger.Log.Info("can not add metric", zap.Error(err))
+		logger.Log.Debug("can not add metric", zap.Error(err))
 		if errors.Is(err, storage.ErrInvalidMetricValue) {
-			logger.Log.Info("invalid metric value")
+			logger.Log.Debug("invalid metric value")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Log.Info("over error then adding metric")
+		logger.Log.Debug("other error then adding metric")
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -142,17 +142,17 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log.Error("can not get metric by name", zap.Error(err))
 		if errors.Is(err, storage.ErrInvalidMetricValue) {
-			logger.Log.Info("invalid metric value")
+			logger.Log.Debug("invalid metric value")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Log.Info("over error then getting metric")
+		logger.Log.Debug("other error then getting metric")
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	resp, err := json.Marshal(mtRes)
 	if err != nil {
-		logger.Log.Info("json marshal error", zap.Error(err))
+		logger.Log.Debug("json marshal error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -164,18 +164,18 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if r.Header.Get("Content-Type") != "application/json" {
-		logger.Log.Info("Invalid content type !!!!",
+		logger.Log.Debug("Invalid content type !!!!",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
 		http.Error(rw, "Invalid content type", http.StatusBadRequest)
 	}
 	var metric models.Metrics
 	if err := json.NewDecoder(r.Body).Decode(&metric); err != nil {
-		logger.Log.Info("Can not parse json request", zap.Error(err))
+		logger.Log.Debug("Can not parse json request", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Println(metric)
-	logger.Log.Info("METRICS PRESENT", zap.Any("metrics", h.storage.GetAllMetrics()))
+	//fmt.Println(metric)
+	//logger.Log.Info("METRICS PRESENT", zap.Any("metrics", h.storage.GetAllMetrics()))
 	defer r.Body.Close()
 	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
@@ -191,24 +191,24 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rw.WriteHeader(http.StatusOK)
-	logger.Log.Info("SENDING RESPONSE", zap.String("resp", string(resp)))
+	logger.Log.Debug("SENDING RESPONSE", zap.String("resp", string(resp)))
 	rw.Write(resp)
 }
 
 func (h *Handler) CheckMethod(next http.Handler) http.Handler {
-	logger.Log.Info("checking method")
+	logger.Log.Debug("checking method")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost && r.Method != http.MethodGet {
 			logger.Log.Error("wrong method", zap.String("method", r.Method))
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		} else {
-			logger.Log.Info("method - OK")
+			logger.Log.Debug("method - OK")
 			next.ServeHTTP(w, r)
 		}
 	})
 }
 func (h *Handler) CheckContentType(next http.Handler) http.Handler {
-	logger.Log.Info("checking content type")
+	logger.Log.Debug("checking content type")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Content-Type") != "application/json" &&
 			r.Header.Get("Content-Type") != "text/plain" &&
@@ -219,14 +219,14 @@ func (h *Handler) CheckContentType(next http.Handler) http.Handler {
 				zap.String("Content-Type", r.Header.Get("Content-Type")))
 			http.Error(w, "invalid content type", http.StatusBadRequest)
 		} else {
-			logger.Log.Info("content type - OK")
+			logger.Log.Debug("content type - OK")
 			next.ServeHTTP(w, r)
 		}
 
 	})
 }
 func (h *Handler) CheckMetricType(next http.Handler) http.Handler {
-	logger.Log.Info("checking metric type")
+	logger.Log.Debug("checking metric type")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mType := chi.URLParam(r, "mType")
 		if mType != "counter" && mType != "gauge" {
@@ -234,33 +234,33 @@ func (h *Handler) CheckMetricType(next http.Handler) http.Handler {
 				zap.String("Type", mType))
 			http.Error(w, "invalid metric type", http.StatusBadRequest)
 		} else {
-			logger.Log.Info("metric type - OK")
+			logger.Log.Debug("metric type - OK")
 			next.ServeHTTP(w, r)
 		}
 	})
 }
 
 func (h *Handler) CheckMetricName(next http.Handler) http.Handler {
-	logger.Log.Info("checking metric name")
+	logger.Log.Debug("checking metric name")
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		mName := chi.URLParam(r, "mName")
 		if strings.TrimSpace(mName) == "" {
 			logger.Log.Error("empty metric name")
 			http.Error(rw, "metric name is required", http.StatusNotFound)
 		} else {
-			logger.Log.Info("metric name - OK")
+			logger.Log.Debug("metric name - OK")
 			next.ServeHTTP(rw, r)
 		}
 	})
 }
 
 func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
-	logger.Log.Info("checking metric value")
+	logger.Log.Debug("checking metric value")
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		mType := chi.URLParam(r, "mType")
 		mValue := chi.URLParam(r, "mValue")
 		var err error
-		logger.Log.Info("guessing metric type")
+		logger.Log.Debug("guessing metric type")
 		if mType == "gauge" {
 			_, err = models.CheckTypeGauge(mValue)
 		} else if mType == "counter" {
@@ -271,7 +271,7 @@ func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
 				zap.Any("value", mValue))
 			http.Error(rw, "invalid metric value", http.StatusBadRequest)
 		} else {
-			logger.Log.Info("metric value - OK")
+			logger.Log.Debug("metric value - OK")
 			next.ServeHTTP(rw, r)
 		}
 	})
