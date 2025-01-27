@@ -10,6 +10,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 	"log"
+	"net/http"
 	"strconv"
 	"time"
 )
@@ -18,6 +19,28 @@ var (
 	ErrCouldNotSendRequest = errors.New("could not send request")
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
+
+func CheckServerConnection(url string) error {
+	// Устанавливаем таймаут для запроса
+	client := http.Client{
+		Timeout: 5 * time.Second, // Таймаут 5 секунд
+	}
+
+	// Отправляем GET запрос на сервер
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to connect to server: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Проверяем код ответа
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned non-OK status: %d", resp.StatusCode)
+	}
+
+	// Если соединение успешное, возвращаем nil (ошибки нет)
+	return nil
+}
 
 func main() {
 	fmt.Println("Starting agent")
@@ -32,6 +55,13 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("parse flags success")
+
+	err = CheckServerConnection("http://" + CliOpt.NetAddr.String())
+	if err != nil {
+		fmt.Println("Connection check failed:", err)
+	} else {
+		fmt.Println("Server is reachable!")
+	}
 
 	ch := make(chan struct{})
 	mc.UpdateValues(CliOpt.PollInterval, ch)
