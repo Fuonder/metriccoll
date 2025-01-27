@@ -46,6 +46,10 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log.Debug("final metric list",
 		zap.String("metrics", strings.Join(stringMetricList, ", ")))
+
+	if r.Header.Get("Accept-Encoding") == "gzip" {
+		rw.Header().Set("Content-Encoding", "gzip")
+	}
 	io.WriteString(rw, strings.Join(stringMetricList, ", "))
 }
 
