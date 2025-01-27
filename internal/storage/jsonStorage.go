@@ -16,8 +16,8 @@ func NewJSONStorage() (*JSONStorage, error) {
 }
 
 func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
-	st.mu.Lock()
-	defer st.mu.Unlock()
+	//st.mu.Lock()
+	//defer st.mu.Unlock()
 	for i, existingItem := range st.metrics {
 		if existingItem.ID == metric.ID && existingItem.MType == metric.MType {
 			if metric.MType == "gauge" {
@@ -44,14 +44,14 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
-		fmt.Println(st.GetAllMetrics())
+		//fmt.Println(st.GetAllMetrics())
 		return nil
 	} else if metric.MType == "counter" {
 		if metric.Delta == nil {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
-		fmt.Println(st.GetAllMetrics())
+		//fmt.Println(st.GetAllMetrics())
 		return nil
 	} else {
 		return fmt.Errorf("metric type: %s is not supported", metric.MType)

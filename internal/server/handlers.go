@@ -175,18 +175,17 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//fmt.Println(metric)
-	//logger.Log.Info("METRICS PRESENT", zap.Any("metrics", h.storage.GetAllMetrics()))
+	//logger.Log.Debug("METRICS PRESENT", zap.Any("metrics", h.storage.GetAllMetrics()))
 	defer r.Body.Close()
 	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
-		logger.Log.Info("metric not found", zap.Error(err))
+		logger.Log.Debug("metric not found", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}
-	metric = mt
-	resp, err := json.MarshalIndent(metric, "", "    ")
+	resp, err := json.MarshalIndent(mt, "", "    ")
 	if err != nil {
-		logger.Log.Info("can not create response", zap.Error(err))
+		logger.Log.Debug("can not create response", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
