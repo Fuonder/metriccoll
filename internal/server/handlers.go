@@ -26,7 +26,6 @@ func NewHandler(storage storage.Storage) *Handler {
 func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("Entering root handler")
 
-	rw.Header().Set("Content-Type", "text/html")
 	var metricList []models.Metrics
 	logger.Log.Debug("creating metric list")
 
@@ -51,6 +50,7 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	//	rw.Header().Set("Content-Encoding", "gzip")
 	//}
 	out := strings.Join(stringMetricList, ", ")
+	rw.Header().Set("Content-Type", "text/html")
 	rw.WriteHeader(http.StatusOK)
 	rw.Write([]byte(out))
 }
@@ -290,6 +290,8 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 		ow := rw
 		if r.Header.Get("Content-Type") != "application/json" &&
 			r.Header.Get("Content-Type") != "text/html" {
+			logger.Log.Info("GZIP: BAD CONTENT TYPE, SKIP",
+				zap.String("Content-Type", r.Header.Get("Content-Type")))
 			h.ServeHTTP(ow, r)
 			return
 		}
