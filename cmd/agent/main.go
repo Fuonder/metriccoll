@@ -56,7 +56,7 @@ func main() {
 	}
 	fmt.Println("parse flags success")
 
-	err = CheckServerConnection("http://" + CliOpt.NetAddr.String())
+	err = CheckServerConnection("http://" + CliOpt.NetAddr.String() + "/")
 	if err != nil {
 		fmt.Println("Connection check failed:", err)
 	} else {
