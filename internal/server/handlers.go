@@ -150,7 +150,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	resp, err := json.MarshalIndent(mtRes, "", "    ")
+	resp, err := json.Marshal(mtRes)
 	if err != nil {
 		logger.Log.Info("json marshal error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
