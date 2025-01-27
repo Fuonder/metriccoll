@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+	defer fmt.Println("exiting MAIN. CLOsing server")
 	err := parseFlags()
 	if err != nil {
 		log.Fatal(err)
