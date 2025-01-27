@@ -10,6 +10,7 @@ import (
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -147,6 +148,13 @@ func SendMetricsJSON(mc storage.Collection) error {
 			return fmt.Errorf("could not send request: %w", err)
 		}
 		defer resp.Body.Close()
+
+		// Read the response body for debugging purposes
+		respBody, _ := io.ReadAll(resp.Body)
+
+		// Log the response status and body for troubleshooting
+		fmt.Printf("Response status: %d\n", resp.StatusCode)
+		fmt.Printf("Response body: %s\n", respBody)
 
 		// Check the response status
 		if resp.StatusCode != 200 {
