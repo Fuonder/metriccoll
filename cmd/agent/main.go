@@ -71,9 +71,11 @@ func main() {
 		fmt.Println("sending metrics")
 		err = SendMetricsJSON(mc)
 		if err != nil {
-			close(ch)
-			time.Sleep(2 * time.Second)
-			log.Fatal(err)
+			if !errors.Is(err, ErrCouldNotSendRequest) {
+				close(ch)
+				time.Sleep(2 * time.Second)
+				log.Fatal(err)
+			}
 		}
 		//err = testAll()
 		//if err != nil {
@@ -163,7 +165,7 @@ func SendMetricsJSON(mc storage.Collection) error {
 			SetBody(body).
 			Post(url)
 		if err != nil {
-			return fmt.Errorf("1%w: %s", ErrCouldNotSendRequest, err)
+			return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
 			return ErrWrongResponseStatus
@@ -196,7 +198,7 @@ func SendMetricsJSON(mc storage.Collection) error {
 			fmt.Printf("response body:\n %s", string(resp.Body()))
 			fmt.Printf("result:\n")
 			fmt.Println(res)
-			return fmt.Errorf("2%w: %s", ErrCouldNotSendRequest, err)
+			return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
 		}
 		if resp.StatusCode() != 200 {
 			fmt.Println("GOT NOT 200 RESPONSE")
