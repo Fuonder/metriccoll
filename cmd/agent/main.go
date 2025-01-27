@@ -69,12 +69,12 @@ func main() {
 	for {
 		time.Sleep(CliOpt.ReportInterval)
 		fmt.Println("sending metrics")
-		err = SendMetricsJSON(mc)
-		if err != nil {
-			close(ch)
-			time.Sleep(2 * time.Second)
-			log.Fatal(err)
-		}
+		_ = SendMetricsJSON(mc)
+		//if err != nil {
+		//	close(ch)
+		//	time.Sleep(2 * time.Second)
+		//	log.Fatal(err)
+		//}
 		//err = testAll()
 		//if err != nil {
 		//	close(ch)
@@ -154,41 +154,6 @@ func SendMetricsJSON(mc storage.Collection) error {
 		fmt.Println("-----------------------------------------------------sending")
 		fmt.Println(mt)
 		fmt.Println(globalcounter)
-		//body, err := json.Marshal(mt)
-		//if err != nil {
-		//	return fmt.Errorf("failed to marshal request body: %w", err)
-		//}
-		//
-		//// Create the request
-		//req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
-		//if err != nil {
-		//	return fmt.Errorf("failed to create request: %w", err)
-		//}
-		//
-		//// Set the headers
-		//req.Header.Set("Content-Type", "application/json")
-		//
-		//// Send the request
-		//client := &http.Client{}
-		//resp, err := client.Do(req)
-		//if err != nil {
-		//	return fmt.Errorf("could not send request: %w", err)
-		//}
-		//defer resp.Body.Close()
-		//
-		//// Read the response body for debugging purposes
-		//respBody, _ := io.ReadAll(resp.Body)
-		//
-		//// Log the response status and body for troubleshooting
-		//fmt.Printf("Response status: %d\n", resp.StatusCode)
-		//fmt.Printf("Response body: %s\n", respBody)
-		//
-		//// Check the response status
-		//if resp.StatusCode != 200 {
-		//	return fmt.Errorf("unexpected response status: %d", resp.StatusCode)
-		//}
-		//
-		//return nil
 		body, err := json.Marshal(mt)
 		if err != nil {
 			return fmt.Errorf("failed to marshal request body: %w", err)
