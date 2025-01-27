@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"net/http"
+	"time"
 )
 
 func main() {
@@ -28,10 +29,20 @@ func run() error {
 		return fmt.Errorf("method run: %v", err)
 	}
 
-	ms, err := storage.NewJSONStorage()
+	ms, err := storage.NewJSONStorage(flagRestore, flagFileStoragePath, flagStoreInterval)
 	if err != nil {
 		return err
 	}
+
+	if !ms.Mode.Sync {
+		go func() {
+			for {
+				time.Sleep(ms.Mode.StoreInterval)
+				_ = ms.DumpMetrics()
+			}
+		}()
+	}
+
 	handler := server.NewHandler(ms)
 
 	logger.Log.Info("Listening at",
@@ -76,3 +87,8 @@ func metricRouter(h *server.Handler) chi.Router {
 	})
 	return router
 }
+
+func loadMetrics() {
+
+}
+func metricsSave() {}

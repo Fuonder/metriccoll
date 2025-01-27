@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server,
@@ -142,7 +143,7 @@ func TestMetricRouter(t *testing.T) {
 			wantResp:    "metric with such key is not found: negative\n",
 		},
 	}
-	ms, err := storage.NewJSONStorage()
+	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
 	h := server.NewHandler(ms)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
@@ -241,7 +242,7 @@ func TestJSONHandling(t *testing.T) {
 			},
 		},
 	}
-	ms, err := storage.NewJSONStorage()
+	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
 	h := server.NewHandler(ms)
 	require.NoError(t, err)
 	gaugeInitValue := 1.0
