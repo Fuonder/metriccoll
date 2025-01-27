@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/go-resty/resty/v2"
+	"go.uber.org/zap"
 	"log"
 	"strconv"
 	"time"
@@ -64,8 +66,10 @@ func SendMetrics(mc storage.Collection) error {
 	cMetrics := mc.GetCounterList()
 
 	for name, value := range gMetrics {
+
 		url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
 			"/" + name + "/" + strconv.FormatFloat(float64(value), 'f', -1, 64)
+		logger.Log.Info("sending metric", zap.String("url", url))
 		resp, err := client.R().
 			SetHeader("Content-Type", "text/plain").
 			Post(url)
@@ -79,6 +83,7 @@ func SendMetrics(mc storage.Collection) error {
 	for name, value := range cMetrics {
 		url := "http://" + CliOpt.NetAddr.String() + "/update/" + value.Type() +
 			"/" + name + "/" + strconv.FormatInt(int64(value), 10)
+		logger.Log.Info("sending metric", zap.String("url", url))
 		resp, err := client.R().
 			SetHeader("Content-Type", "text/plain").
 			Post(url)

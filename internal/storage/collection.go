@@ -71,7 +71,7 @@ func (mc *MetricsCollection) UpdateValues(interval time.Duration, stopChan chan 
 				logger.Log.Debug("Stopping metrics collection")
 				return
 			default:
-				logger.Log.Debug("Updating metrics collection")
+				logger.Log.Info("Updating metrics collection")
 				mc.ReadValues()
 				time.Sleep(interval)
 			}
