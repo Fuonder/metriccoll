@@ -3,7 +3,9 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/models"
+	"go.uber.org/zap"
 	"io"
 	"os"
 	"sync"
@@ -68,13 +70,16 @@ func (st *JSONStorage) DumpMetrics() error {
 func (st *JSONStorage) loadMetricsFromFile() error {
 	_, err := os.Stat(st.fStoragePath)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("can not find metrcis file \"%s\": %w", st.fStoragePath, err)
+		logger.Log.Info("can not find metrcis file",
+			zap.String("Expected file", st.fStoragePath),
+			zap.Error(err))
+		return nil
 	} else if err != nil {
 		return fmt.Errorf("can not find metrcis file \"%s\": %w", st.fStoragePath, err)
 	}
-	file, err := os.Open(st.fStoragePath)
+	file, err := os.OpenFile(st.fStoragePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
-		return fmt.Errorf("can not open metrcis file \"%s\": %w", st.fStoragePath, err)
+		return err
 	}
 	defer file.Close()
 
