@@ -288,13 +288,13 @@ func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
 func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		ow := rw
-		if r.Header.Get("Content-Type") != "application/json" &&
-			r.Header.Get("Content-Type") != "text/html" {
-			logger.Log.Info("GZIP: BAD CONTENT TYPE, SKIP",
-				zap.String("Content-Type", r.Header.Get("Content-Type")))
-			h.ServeHTTP(ow, r)
-			return
-		}
+		//if r.Header.Get("Content-Type") != "application/json" &&
+		//	r.Header.Get("Content-Type") != "text/html" {
+		//	logger.Log.Info("GZIP: BAD CONTENT TYPE, SKIP",
+		//		zap.String("Content-Type", r.Header.Get("Content-Type")))
+		//	h.ServeHTTP(ow, r)
+		//	return
+		//}
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		logger.Log.Info("GZIP: AcceptEncoding", zap.String("Accept-Encoding", acceptEncoding))
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
