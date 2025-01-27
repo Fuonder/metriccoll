@@ -137,6 +137,7 @@ func SendMetricsJSON(mc storage.Collection) error {
 	client := resty.New()
 	gMetrics := mc.GetGaugeList()
 	cMetrics := mc.GetCounterList()
+	url := "http://" + CliOpt.NetAddr.String() + "/update/"
 	for name, value := range cMetrics {
 		mt := models.Metrics{
 			ID:    name,
@@ -153,7 +154,6 @@ func SendMetricsJSON(mc storage.Collection) error {
 		fmt.Println("-----------------------------------------------------sending")
 		fmt.Println(mt)
 		fmt.Println(globalcounter)
-		url := "http://" + CliOpt.NetAddr.String() + "/update"
 		//body, err := json.Marshal(mt)
 		//if err != nil {
 		//	return fmt.Errorf("failed to marshal request body: %w", err)
@@ -217,7 +217,6 @@ func SendMetricsJSON(mc storage.Collection) error {
 		fmt.Println("sending")
 		fmt.Println(mt)
 		fmt.Println(globalcounter)
-		url := "http://" + CliOpt.NetAddr.String() + "/update"
 		cli := client.R()
 		cli.SetHeader("Content-Type", "application/json")
 		//cli.SetHeader("Accept", "application/json")
