@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
@@ -35,7 +34,7 @@ func main() {
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		err = SendMetrics(mc)
+		err = SendMetricsJSON(mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
@@ -107,17 +106,17 @@ func SendMetricsJSON(mc storage.Collection) error {
 		mt.ID = name
 		mt.MType = "gauge"
 		mt.Value = (*float64)(&value)
-		out, err := json.Marshal(mt)
-		if err != nil {
-			return fmt.Errorf("json marshal: %v", err)
-		}
+		//out, err := json.Marshal(mt)
+		//if err != nil {
+		//	return fmt.Errorf("json marshal: %v", err)
+		//}
 		fmt.Println("sending")
 		fmt.Println(mt)
 		url := "http://" + CliOpt.NetAddr.String() + "/update/"
 		cli := client.R()
 		cli.SetHeader("Content-Type", "application/json")
-		cli.SetHeader("Accept", "application/json")
-		cli.SetBody(out)
+		//cli.SetHeader("Accept", "application/json")
+		cli.SetBody(&mt)
 		cli.SetResult(res)
 		resp, err := cli.Post(url)
 		if err != nil {
@@ -141,15 +140,16 @@ func SendMetricsJSON(mc storage.Collection) error {
 		mt.ID = name
 		mt.MType = "counter"
 		mt.Delta = (*int64)(&value)
-		out, err := json.Marshal(mt)
-		if err != nil {
-			return fmt.Errorf("json marshal: %v", err)
-		}
-
+		//out, err := json.Marshal(mt)
+		//if err != nil {
+		//	return fmt.Errorf("json marshal: %v", err)
+		//}
+		fmt.Println("-----------------------------------------------------sending")
+		fmt.Println(mt)
 		url := "http://" + CliOpt.NetAddr.String() + "/update/"
 		resp, err := client.R().
 			SetHeader("Content-Type", "application/json").
-			SetBody(out).
+			SetBody(&mt).
 			Post(url)
 		if err != nil {
 			return fmt.Errorf("1%w: %s", ErrCouldNotSendRequest, err)
