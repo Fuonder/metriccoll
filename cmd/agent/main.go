@@ -69,12 +69,12 @@ func main() {
 	for {
 		time.Sleep(CliOpt.ReportInterval)
 		fmt.Println("sending metrics")
-		_ = SendMetricsJSON(mc)
-		//if err != nil {
-		//	close(ch)
-		//	time.Sleep(2 * time.Second)
-		//	log.Fatal(err)
-		//}
+		err = SendMetricsJSON(mc)
+		if err != nil {
+			close(ch)
+			time.Sleep(2 * time.Second)
+			log.Fatal(err)
+		}
 		//err = testAll()
 		//if err != nil {
 		//	close(ch)
