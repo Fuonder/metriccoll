@@ -51,6 +51,7 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	//	rw.Header().Set("Content-Encoding", "gzip")
 	//}
 	out := strings.Join(stringMetricList, ", ")
+	rw.WriteHeader(http.StatusOK)
 	rw.Write([]byte(out))
 }
 
@@ -293,7 +294,9 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		acceptEncoding := r.Header.Get("Accept-Encoding")
+		logger.Log.Info("GZIP: AcceptEncoding", zap.String("Accept-Encoding", acceptEncoding))
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")
+		logger.Log.Info("GZIP: AcceptEncoding GZIP?", zap.Bool("SupportGZIP", supportsGzip))
 		if supportsGzip {
 			cw := newGzipWriter(rw)
 			ow = cw
