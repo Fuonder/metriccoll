@@ -29,6 +29,7 @@ type JSONStorage struct {
 //func NewJSONStorage(loadFromFile bool, filePath string, interval time.Duration) (*JSONStorage, error) {
 
 func NewJSONStorage(loadFromFile bool, filePath string, interval time.Duration) (*JSONStorage, error) {
+
 	st := JSONStorage{metrics: make([]models.Metrics, 0)}
 	st.fStoragePath = filePath
 	st.fStore = loadFromFile
@@ -72,7 +73,7 @@ func (st *JSONStorage) DumpMetrics() error {
 }
 
 func (st *JSONStorage) loadMetricsFromFile() error {
-	_, err := os.Stat(st.fStoragePath)
+	statTest, err := os.Stat(st.fStoragePath)
 	if os.IsNotExist(err) {
 		logger.Log.Info("can not find metrcis file",
 			zap.String("Expected file", st.fStoragePath),
@@ -80,6 +81,9 @@ func (st *JSONStorage) loadMetricsFromFile() error {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("can not find metrcis file \"%s\": %w", st.fStoragePath, err)
+	}
+	if statTest.Size() == 0 {
+		return nil
 	}
 	file, err := os.OpenFile(st.fStoragePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
@@ -94,7 +98,7 @@ func (st *JSONStorage) loadMetricsFromFile() error {
 	var items []models.Metrics
 	err = json.Unmarshal(data, &items)
 	if err != nil {
-		return err
+		return fmt.Errorf("not valid json data in file: %w", err)
 	}
 	st.metrics = items
 
