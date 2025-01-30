@@ -112,7 +112,7 @@ func checkPathWritable(path string) error {
 		}
 	}
 
-	file, err := os.OpenFile(path, os.O_RDWR, storage.OS_ALL_RW)
+	file, err := os.OpenFile(path, os.O_RDWR, storage.OsAllRw)
 	if err != nil {
 		return fmt.Errorf("can not open file in Write mode: %w", err)
 	}

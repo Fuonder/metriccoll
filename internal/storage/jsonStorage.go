@@ -54,7 +54,7 @@ func (st *JSONStorage) DumpMetrics() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(st.fStoragePath, data, OS_ALL_RW)
+	err = os.WriteFile(st.fStoragePath, data, OsAllRw)
 	if err != nil {
 		return err
 	}
