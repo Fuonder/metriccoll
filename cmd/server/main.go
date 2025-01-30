@@ -13,11 +13,16 @@ import (
 )
 
 func main() {
-	defer fmt.Println("exiting MAIN. CLOsing server")
 	err := parseFlags()
 	if err != nil {
 		log.Fatal(err)
 	}
+	if err := logger.Initialize(FlagsOptions.LogLevel); err != nil {
+		panic(fmt.Errorf("method run: %v", err))
+	}
+	logger.Log.Debug("Flags parsed",
+		zap.String("flags", FlagsOptions.String()))
+
 	logger.Log.Info("Starting metric collector")
 	if err = run(); err != nil {
 		logger.Log.Fatal("", zap.Error(err))
@@ -25,11 +30,8 @@ func main() {
 }
 
 func run() error {
-	if err := logger.Initialize(flagLogLevel); err != nil {
-		return fmt.Errorf("method run: %v", err)
-	}
 
-	ms, err := storage.NewJSONStorage(flagRestore, flagFileStoragePath, flagStoreInterval)
+	ms, err := storage.NewJSONStorage(FlagsOptions.Restore, FlagsOptions.FileStoragePath, FlagsOptions.StoreInterval)
 	if err != nil {
 		return err
 	}

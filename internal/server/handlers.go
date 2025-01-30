@@ -15,6 +15,18 @@ import (
 	"strings"
 )
 
+var validContentTypes = map[string]struct{}{
+	"text/plain":                {},
+	"text/plain; charset=UTF-8": {},
+	"text/plain; charset=utf-8": {},
+	"application/json":          {},
+}
+
+func isValidContentType(ct string) bool {
+	_, ok := validContentTypes[ct]
+	return ok || ct == ""
+}
+
 type Handler struct {
 	storage storage.Storage
 }
@@ -214,11 +226,7 @@ func (h *Handler) CheckMethod(next http.Handler) http.Handler {
 func (h *Handler) CheckContentType(next http.Handler) http.Handler {
 	logger.Log.Debug("checking content type")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Content-Type") != "application/json" &&
-			r.Header.Get("Content-Type") != "text/plain" &&
-			r.Header.Get("Content-Type") != "text/plain; charset=UTF-8" &&
-			r.Header.Get("Content-Type") != "text/plain; charset=utf-8" &&
-			r.Header.Get("Content-Type") != "" {
+		if !isValidContentType(r.Header.Get("Content-Type")) {
 			logger.Log.Info("wrong content type",
 				zap.String("Content-Type", r.Header.Get("Content-Type")))
 			http.Error(w, "invalid content type", http.StatusBadRequest)
@@ -288,13 +296,6 @@ func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
 func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		ow := rw
-		//if r.Header.Get("Content-Type") != "application/json" &&
-		//	r.Header.Get("Content-Type") != "text/html" {
-		//	logger.Log.Info("GZIP: BAD CONTENT TYPE, SKIP",
-		//		zap.String("Content-Type", r.Header.Get("Content-Type")))
-		//	h.ServeHTTP(ow, r)
-		//	return
-		//}
 		acceptEncoding := r.Header.Get("Accept-Encoding")
 		logger.Log.Info("GZIP: AcceptEncoding", zap.String("Accept-Encoding", acceptEncoding))
 		supportsGzip := strings.Contains(acceptEncoding, "gzip")

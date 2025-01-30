@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"os"
 	"strconv"
 	"strings"
@@ -57,17 +58,23 @@ func (n *netAddress) Set(value string) error {
 	return nil
 }
 
-var (
-	netAddr = &netAddress{
-		ipaddr: "localhost",
-		port:   8080,
-	}
-	flagLogLevel        string
-	flagStoreInterval   time.Duration
-	sIntervalInt64      int64 = 300
-	flagFileStoragePath string
-	flagRestore         bool
-)
+type Flags struct {
+	NetAddress      netAddress
+	LogLevel        string
+	StoreInterval   time.Duration
+	FileStoragePath string
+	Restore         bool
+}
+
+func (f *Flags) String() string {
+	return fmt.Sprintf("netAddr: %s, LogLevel: %s, StoreInterval: %s, FileStoragePath: %s, Restore: %v",
+		f.NetAddress.String(),
+		f.LogLevel,
+		f.StoreInterval.String(),
+		f.FileStoragePath,
+		f.Restore,
+	)
+}
 
 func validateIntervalString(interval string) error {
 	i, err := strconv.Atoi(interval)
@@ -87,13 +94,58 @@ func validateIntervalInt64(interval int64) error {
 	return nil
 }
 
+func checkPathWritable(path string) error {
+	if path == "" {
+		return fmt.Errorf("path can not be empty")
+	}
+
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			file, err := os.Create(path)
+			if err != nil {
+				return fmt.Errorf("can not create file \"%s\": %w", path, err)
+			}
+			defer file.Close()
+		} else {
+			return fmt.Errorf("can not get information about path \"%s\": %w", path, err)
+		}
+	}
+
+	file, err := os.OpenFile(path, os.O_RDWR, storage.OS_ALL_RW)
+	if err != nil {
+		return fmt.Errorf("can not open file in Write mode: %w", err)
+	}
+	defer file.Close()
+
+	return nil
+}
+
+var (
+	FlagsOptions = Flags{
+		NetAddress: netAddress{
+			ipaddr: "localhost",
+			port:   8080},
+		LogLevel:        "info",
+		StoreInterval:   300 * time.Second,
+		FileStoragePath: "./metrics.dump",
+		Restore:         true,
+	}
+
+	netAddr = &netAddress{
+		ipaddr: "localhost",
+		port:   8080,
+	}
+	sIntervalInt64 int64 = 300
+)
+
 func parseFlags() error {
 	flag.Usage = usage
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
-	flag.StringVar(&flagLogLevel, "l", "info", "loglevel")
+	flag.StringVar(&FlagsOptions.LogLevel, "l", "info", "loglevel")
 	flag.Int64Var(&sIntervalInt64, "i", 300, "interval for metrics dump in seconds")
-	flag.StringVar(&flagFileStoragePath, "f", "./metrics.dump", "Path to metrics dump file")
-	flag.BoolVar(&flagRestore, "r", true, "load metrics from dump on start")
+	flag.StringVar(&FlagsOptions.FileStoragePath, "f", "./metrics.dump", "Path to metrics dump file")
+	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")
 
 	flag.Parse()
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
@@ -103,14 +155,14 @@ func parseFlags() error {
 		}
 	}
 	if envLogLevel := os.Getenv("LOG_LEVEL"); envLogLevel != "" {
-		flagLogLevel = envLogLevel
+		FlagsOptions.LogLevel = envLogLevel
 	}
 	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
 		err := validateIntervalString(envStoreInterval)
 		if err != nil {
 			return fmt.Errorf("invalid STORE_INTERVAL value: %w", err)
 		}
-		flagStoreInterval, err = time.ParseDuration(envStoreInterval + "s")
+		FlagsOptions.StoreInterval, err = time.ParseDuration(envStoreInterval + "s")
 		if err != nil {
 			return fmt.Errorf("invalid STORE_INTERVAL value: %w", err)
 		}
@@ -119,15 +171,24 @@ func parseFlags() error {
 		if err != nil {
 			return fmt.Errorf("flag -i: %w", err)
 		}
-		flagStoreInterval = time.Duration(sIntervalInt64) * time.Second
+		FlagsOptions.StoreInterval = time.Duration(sIntervalInt64) * time.Second
 	}
 
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
-		flagFileStoragePath = envFileStoragePath
+		err := checkPathWritable(envFileStoragePath)
+		if err != nil {
+			return fmt.Errorf("invalid FILE_STORAGE_PATH value: %w", err)
+		}
+		FlagsOptions.FileStoragePath = envFileStoragePath
+	} else {
+		err := checkPathWritable(FlagsOptions.FileStoragePath)
+		if err != nil {
+			return fmt.Errorf("invalid FILE_STORAGE_PATH value: %w", err)
+		}
 	}
 	if envRestore := os.Getenv("RESTORE"); envRestore != "" {
 		var err error
-		flagRestore, err = strconv.ParseBool(envRestore)
+		FlagsOptions.Restore, err = strconv.ParseBool(envRestore)
 		if err != nil {
 			return fmt.Errorf("invalid RESTORE value: %w", err)
 		}

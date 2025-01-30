@@ -22,8 +22,11 @@ type JSONStorage struct {
 	fStore       bool
 	fStoragePath string
 	Mode         StoreMode
-	mu           sync.Mutex
+	mu           sync.RWMutex
+	fileMu       sync.RWMutex
 }
+
+//func NewJSONStorage(loadFromFile bool, filePath string, interval time.Duration) (*JSONStorage, error) {
 
 func NewJSONStorage(loadFromFile bool, filePath string, interval time.Duration) (*JSONStorage, error) {
 	st := JSONStorage{metrics: make([]models.Metrics, 0)}
@@ -45,12 +48,13 @@ func NewJSONStorage(loadFromFile bool, filePath string, interval time.Duration) 
 }
 
 func (st *JSONStorage) DumpMetrics() error {
-
+	st.fileMu.Lock()
+	defer st.fileMu.Unlock()
 	data, err := json.MarshalIndent(st.metrics, "", "    ")
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(st.fStoragePath, data, 0666)
+	err = os.WriteFile(st.fStoragePath, data, OS_ALL_RW)
 	if err != nil {
 		return err
 	}
