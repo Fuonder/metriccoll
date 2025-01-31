@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/Fuonder/metriccoll.git/internal/server"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/stretchr/testify/require"
@@ -8,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server,
@@ -16,6 +19,7 @@ func testRequest(t *testing.T, ts *httptest.Server,
 	req, err := http.NewRequest(method, ts.URL+path, nil)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Accept-Encoding", "")
 	resp, err := ts.Client().Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
@@ -60,7 +64,7 @@ func TestMetricRouter(t *testing.T) {
 			name:        "NegativeWrongContentType",
 			url:         "/update/counter/cMetric/4",
 			method:      http.MethodPost,
-			contentType: "application/json",
+			contentType: "application/json111",
 			want:        http.StatusBadRequest,
 		},
 		{
@@ -139,7 +143,7 @@ func TestMetricRouter(t *testing.T) {
 			wantResp:    "metric with such key is not found: negative\n",
 		},
 	}
-	ms, err := storage.NewMemStorage()
+	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
 	h := server.NewHandler(ms)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
@@ -158,6 +162,117 @@ func TestMetricRouter(t *testing.T) {
 			defer resp.Body.Close()
 			require.Equal(t, test.want, resp.StatusCode)
 			require.Equal(t, test.wantResp, body)
+		})
+	}
+}
+
+func testJSONRequest(t *testing.T, ts *httptest.Server,
+	method string, contentType string, path string, body []byte) (*http.Response, string) {
+	req, err := http.NewRequest(method, ts.URL+path, bytes.NewBuffer(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", contentType)
+	resp, err := ts.Client().Do(req)
+
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	return resp, string(respBody)
+}
+
+func TestJSONHandling(t *testing.T) {
+	type want struct {
+		err        bool
+		statusCode int
+		wantResp   string
+	}
+	tests := []struct {
+		name        string
+		url         string
+		method      string
+		contentType string
+		body        string
+		want        want
+	}{
+		{
+			name:        "JSONPositiveUpdateGauge",
+			url:         "/update",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        `{"id": "gMetric", "type": "gauge", "value": 1.5}`,
+			want: want{
+				err:        false,
+				statusCode: http.StatusOK,
+				wantResp:   `{"id": "gMetric", "type": "gauge", "value": 1.5}`,
+			},
+		},
+		{
+			name:        "JSONNegativeNoValueGauge",
+			url:         "/update",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        `{"id": "cMetric", "type": "counter"}`,
+			want: want{
+				err:        true,
+				statusCode: http.StatusBadRequest,
+			},
+		},
+		{
+			name:        "JSONPositiveUpdateCounter",
+			url:         "/update",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        `{"id": "cMetric", "type": "counter", "delta": 10}`,
+			want: want{
+				err:        false,
+				statusCode: http.StatusOK,
+				wantResp:   `{"id": "cMetric", "type": "counter", "delta": 11}`,
+			},
+		},
+		{
+			name:        "JSONNegativeNoValueCounter",
+			url:         "/update",
+			method:      http.MethodPost,
+			contentType: "application/json",
+			body:        `{"id": "cMetric", "type": "counter"}`,
+			want: want{
+				err:        true,
+				statusCode: http.StatusBadRequest,
+			},
+		},
+	}
+	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
+	h := server.NewHandler(ms)
+	require.NoError(t, err)
+	gaugeInitValue := 1.0
+	counterInitValue := int64(1)
+	err = ms.AppendMetric(models.Metrics{
+		ID:    "gMetric",
+		MType: "gauge",
+		Value: &gaugeInitValue,
+	})
+	require.NoError(t, err)
+	err = ms.AppendMetric(models.Metrics{
+		ID:    "cMetric",
+		MType: "counter",
+		Delta: &counterInitValue,
+	})
+	require.NoError(t, err)
+
+	ts := httptest.NewServer(metricRouter(h))
+	defer ts.Close()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			require.NoError(t, err)
+			resp, stringResp := testJSONRequest(t, ts, test.method, test.contentType, test.url, []byte(test.body))
+			defer resp.Body.Close()
+			require.Equal(t, test.want.statusCode, resp.StatusCode)
+			if !test.want.err {
+				require.JSONEq(t, test.want.wantResp, stringResp)
+			}
 		})
 	}
 }

@@ -40,11 +40,11 @@ func TestAppendGaugeMetric(t *testing.T) {
 			require.NotNil(t, st)
 			if test.data.initItem != nil {
 				for name, value := range test.data.initItem {
-					st.AppendGaugeMetric(name, value)
+					st.appendGaugeMetric(name, value)
 				}
 			}
 			for name, value := range test.data.items {
-				st.AppendGaugeMetric(name, value)
+				st.appendGaugeMetric(name, value)
 				require.Contains(t, st.gMetric, name)
 				require.Equal(t, test.want, st.gMetric[name])
 			}
@@ -86,11 +86,11 @@ func TestAppendCounterMetric(t *testing.T) {
 			require.NotNil(t, st)
 			if test.data.initItem != nil {
 				for name, value := range test.data.initItem {
-					st.AppendCounterMetric(name, value)
+					st.appendCounterMetric(name, value)
 				}
 			}
 			for name, value := range test.data.items {
-				st.AppendCounterMetric(name, value)
+				st.appendCounterMetric(name, value)
 				require.Contains(t, st.cMetric, name)
 				require.Equal(t, test.want, st.cMetric[name])
 			}

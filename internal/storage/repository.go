@@ -1,22 +1,19 @@
 package storage
 
 import (
-	model "github.com/Fuonder/metriccoll.git/internal/models"
+	"github.com/Fuonder/metriccoll.git/internal/models"
 	"time"
 )
 
 type Storage interface {
-	AppendGaugeMetric(name string, value model.Gauge)
-	AppendCounterMetric(name string, value model.Counter)
-	GetGaugeMetric(key string) (model.Gauge, error)
-	GetGaugeList() map[string]model.Gauge
-	GetCounterMetric(key string) (model.Counter, error)
-	GetCounterList() map[string]model.Counter
+	GetMetricByName(name string, mType string) (models.Metrics, error)
+	AppendMetric(metric models.Metrics) error
+	GetAllMetrics() []models.Metrics
 }
 
 type Collection interface {
 	ReadValues()
 	UpdateValues(interval time.Duration, stopChan chan struct{})
-	GetCounterList() map[string]model.Counter
-	GetGaugeList() map[string]model.Gauge
+	GetCounterList() map[string]models.Counter
+	GetGaugeList() map[string]models.Gauge
 }

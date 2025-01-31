@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"github.com/Fuonder/metriccoll.git/internal/logger"
 	model "github.com/Fuonder/metriccoll.git/internal/models"
-	"log"
 	"math/rand/v2"
 	"runtime"
 	"time"
@@ -68,10 +68,10 @@ func (mc *MetricsCollection) UpdateValues(interval time.Duration, stopChan chan 
 		for {
 			select {
 			case <-stopChan:
-				log.Println("Stopping metrics collection")
+				logger.Log.Debug("Stopping metrics collection")
 				return
 			default:
-				log.Println("Updating metrics collection")
+				logger.Log.Info("Updating metrics collection")
 				mc.ReadValues()
 				time.Sleep(interval)
 			}
