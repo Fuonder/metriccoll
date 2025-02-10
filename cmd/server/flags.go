@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -64,6 +65,7 @@ type Flags struct {
 	StoreInterval   time.Duration
 	FileStoragePath string
 	Restore         bool
+	DatabaseDSN     string
 }
 
 func (f *Flags) String() string {
@@ -121,6 +123,16 @@ func checkPathWritable(path string) error {
 	return nil
 }
 
+func isValidIP(input string) error {
+	if input == "localhost" || input == "127.0.0.1" || input == "::1" {
+		return nil
+	}
+	if net.ParseIP(input) != nil {
+		return nil
+	}
+	return fmt.Errorf("%w: \"%s\"", ErrInvalidIP, input)
+}
+
 var (
 	FlagsOptions = Flags{
 		NetAddress: netAddress{
@@ -130,6 +142,7 @@ var (
 		StoreInterval:   300 * time.Second,
 		FileStoragePath: "./metrics.dump",
 		Restore:         true,
+		DatabaseDSN:     "localhost",
 	}
 
 	netAddr = &netAddress{
@@ -146,6 +159,7 @@ func parseFlags() error {
 	flag.Int64Var(&sIntervalInt64, "i", 300, "interval for metrics dump in seconds")
 	flag.StringVar(&FlagsOptions.FileStoragePath, "f", "./metrics.dump", "Path to metrics dump file")
 	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")
+	flag.StringVar(&FlagsOptions.DatabaseDSN, "d", "localhost", "Database DSN")
 
 	flag.Parse()
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
@@ -191,6 +205,19 @@ func parseFlags() error {
 		FlagsOptions.Restore, err = strconv.ParseBool(envRestore)
 		if err != nil {
 			return fmt.Errorf("invalid RESTORE value: %w", err)
+		}
+	}
+
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		err := isValidIP(envDatabaseDSN)
+		if err != nil {
+			return fmt.Errorf("invalid DATABASE_DSN value: %w", err)
+		}
+		FlagsOptions.DatabaseDSN = envDatabaseDSN
+	} else {
+		err := isValidIP(FlagsOptions.DatabaseDSN)
+		if err != nil {
+			return fmt.Errorf("invalid DATABASE_DSN value: %w", err)
 		}
 	}
 	return nil

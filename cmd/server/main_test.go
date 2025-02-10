@@ -144,7 +144,15 @@ func TestMetricRouter(t *testing.T) {
 		},
 	}
 	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
-	h := server.NewHandler(ms)
+	dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
+		"videos",
+		"12345678",
+		"videos",
+		"disable")
+	dbStorage, err := storage.NewDatabase(dbSettings)
+	require.NoError(t, err)
+
+	h := server.NewHandler(ms, dbStorage)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
 	defer ts.Close()
@@ -243,7 +251,14 @@ func TestJSONHandling(t *testing.T) {
 		},
 	}
 	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
-	h := server.NewHandler(ms)
+	dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
+		"videos",
+		"12345678",
+		"videos",
+		"disable")
+	dbStorage, err := storage.NewDatabase(dbSettings)
+	require.NoError(t, err)
+	h := server.NewHandler(ms, dbStorage)
 	require.NoError(t, err)
 	gaugeInitValue := 1.0
 	counterInitValue := int64(1)
