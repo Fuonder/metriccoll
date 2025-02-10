@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
-	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -124,10 +123,17 @@ func checkPathWritable(path string) error {
 }
 
 func isValidIP(input string) error {
-	if input == "localhost" || input == "127.0.0.1" || input == "::1" {
-		return nil
-	}
-	if net.ParseIP(input) != nil {
+	//if input == "localhost" || input == "127.0.0.1" || input == "::1" {
+	//	return nil
+	//}
+	//if net.ParseIP(input) != nil {
+	//	return nil
+	//}
+	//var re = regexp.MustCompile(`^[a-zA-Z0-9_]+:[a-zA-Z0-9_]+@([a-zA-Z0-9.-]+):\d+/.+\?sslmode=[a-zA-Z0-9_]+$`)
+	//if re.MatchString(input) {
+	//	return nil
+	//}
+	if input != "" {
 		return nil
 	}
 	return fmt.Errorf("%w: \"%s\"", ErrInvalidIP, input)
