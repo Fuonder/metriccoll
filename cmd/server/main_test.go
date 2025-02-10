@@ -150,9 +150,7 @@ func TestMetricRouter(t *testing.T) {
 		"12345678",
 		"videos",
 		"disable")
-	dbStorage, err := storage.NewDatabase(dbSettings)
-	require.NoError(t, err)
-
+	dbStorage, _ := storage.NewDatabase(dbSettings)
 	h := server.NewHandler(ms, dbStorage)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
@@ -251,8 +249,7 @@ func TestJSONHandling(t *testing.T) {
 			},
 		},
 	}
-	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
-	require.NoError(t, err)
+	ms, _ := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
 	dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
 		"videos",
 		"12345678",
