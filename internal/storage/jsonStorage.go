@@ -195,3 +195,7 @@ func (st *JSONStorage) GetMetricByName(name string, mType string) (models.Metric
 func (st *JSONStorage) GetAllMetrics() []models.Metrics {
 	return st.metrics
 }
+
+func (st *JSONStorage) CheckConnection() error {
+	return fmt.Errorf("not implemented")
+}

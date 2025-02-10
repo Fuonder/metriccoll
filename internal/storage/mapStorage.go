@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// Deprecated: Memory storage does not supported from 0.1.9 version
 type memStorage struct {
 	gMetric map[string]models.Gauge
 	cMetric map[string]models.Counter
@@ -18,6 +19,16 @@ func NewMemStorage() (*memStorage, error) {
 		cMetric: make(map[string]models.Counter),
 	}
 	return &ms, nil
+}
+
+func (ms *memStorage) loadMetricsFromFile() error {
+	return fmt.Errorf("loading from file is not yet implemented" +
+		"consider using \"jsonStorage\" or \"dbStorage\" instead")
+}
+
+func (ms *memStorage) DumpMetrics() error {
+	return fmt.Errorf("dump to file is not yet implemented, " +
+		"consider using \"jsonStorage\" or \"dbStorage\" instead")
 }
 
 func (ms *memStorage) AppendMetric(metric models.Metrics) error {
@@ -113,4 +124,8 @@ func (ms *memStorage) getCounterMetric(name string) (models.Counter, error) {
 
 func (ms *memStorage) getCounterList() map[string]models.Counter {
 	return ms.cMetric
+}
+
+func (ms *memStorage) CheckConnection() error {
+	return fmt.Errorf("not implemented")
 }

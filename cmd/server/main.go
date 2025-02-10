@@ -44,8 +44,19 @@ func run() error {
 			}
 		}()
 	}
+	//dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
+	//	"videos",
+	//	"12345678",
+	//	"videos",
+	//	"disable")
+	dbSettings := FlagsOptions.DatabaseDSN
+	dbStorage, err := storage.NewDatabase(dbSettings)
+	if err != nil {
+		logger.Log.Warn("Cannot connect to db") // TODO: make critical
+	}
+	defer dbStorage.Close()
 
-	handler := server.NewHandler(ms)
+	handler := server.NewHandler(ms, dbStorage)
 
 	logger.Log.Info("Listening at",
 		zap.String("Addr", netAddr.String()))
@@ -59,6 +70,9 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
 	router.Get("/", logger.HanlderWithLogger(server.GzipMiddleware(h.RootHandler)))
+	router.Route("/ping", func(router chi.Router) {
+		router.Get("/", logger.HanlderWithLogger(server.GzipMiddleware(h.DBPingHandler)))
+	})
 	router.Route("/update", func(router chi.Router) {
 		router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.JSONUpdateHandler)))
 		router.Route("/{mType}", func(router chi.Router) {

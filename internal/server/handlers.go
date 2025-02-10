@@ -15,6 +15,8 @@ import (
 	"strings"
 )
 
+var ErrInvalidMetricValue = errors.New("invalid metric value")
+
 var validContentTypes = map[string]struct{}{
 	"text/plain":                {},
 	"text/plain; charset=UTF-8": {},
@@ -28,11 +30,12 @@ func isValidContentType(ct string) bool {
 }
 
 type Handler struct {
-	storage storage.Storage
+	storage   storage.Storage
+	dbStorage storage.Storage
 }
 
-func NewHandler(storage storage.Storage) *Handler {
-	return &Handler{storage: storage}
+func NewHandler(storage storage.Storage, dbStorage storage.Storage) *Handler {
+	return &Handler{storage: storage, dbStorage: dbStorage}
 }
 
 func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
@@ -98,7 +101,7 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "gauge", Value: (*float64)(&value)})
 		if err != nil {
 			logger.Log.Info("can not add metric", zap.Error(err))
-			if errors.Is(err, storage.ErrInvalidMetricValue) {
+			if errors.Is(err, ErrInvalidMetricValue) {
 				http.Error(rw, err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -112,7 +115,7 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "counter", Delta: (*int64)(&value)})
 		if err != nil {
 			logger.Log.Info("can not add metric", zap.Error(err))
-			if errors.Is(err, storage.ErrInvalidMetricValue) {
+			if errors.Is(err, ErrInvalidMetricValue) {
 				http.Error(rw, err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -145,7 +148,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	err := h.storage.AppendMetric(mt)
 	if err != nil {
 		logger.Log.Debug("can not add metric", zap.Error(err))
-		if errors.Is(err, storage.ErrInvalidMetricValue) {
+		if errors.Is(err, ErrInvalidMetricValue) {
 			logger.Log.Debug("invalid metric value")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
@@ -157,7 +160,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
 	if err != nil {
 		logger.Log.Info("can not get metric by name", zap.Error(err))
-		if errors.Is(err, storage.ErrInvalidMetricValue) {
+		if errors.Is(err, ErrInvalidMetricValue) {
 			logger.Log.Info("invalid metric value")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
@@ -208,6 +211,17 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 	rw.WriteHeader(http.StatusOK)
 	rw.Write(resp)
+}
+
+func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
+	err := h.dbStorage.CheckConnection()
+	if err != nil {
+		logger.Log.Info("can not connect to database", zap.Error(err))
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rw.WriteHeader(http.StatusOK)
+	rw.Write([]byte(""))
 }
 
 func (h *Handler) CheckMethod(next http.Handler) http.Handler {
