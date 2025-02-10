@@ -148,7 +148,7 @@ var (
 		StoreInterval:   300 * time.Second,
 		FileStoragePath: "./metrics.dump",
 		Restore:         true,
-		DatabaseDSN:     "localhost",
+		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
 	}
 
 	netAddr = &netAddress{
@@ -165,7 +165,7 @@ func parseFlags() error {
 	flag.Int64Var(&sIntervalInt64, "i", 300, "interval for metrics dump in seconds")
 	flag.StringVar(&FlagsOptions.FileStoragePath, "f", "./metrics.dump", "Path to metrics dump file")
 	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")
-	flag.StringVar(&FlagsOptions.DatabaseDSN, "d", "localhost", "Database DSN")
+	flag.StringVar(&FlagsOptions.DatabaseDSN, "d", "postgres://videos:12345678@localhost:5432/videos?sslmode=disable", "Database DSN")
 
 	flag.Parse()
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {

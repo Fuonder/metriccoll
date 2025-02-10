@@ -44,11 +44,12 @@ func run() error {
 			}
 		}()
 	}
-	dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
-		"videos",
-		"12345678",
-		"videos",
-		"disable")
+	//dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
+	//	"videos",
+	//	"12345678",
+	//	"videos",
+	//	"disable")
+	dbSettings := FlagsOptions.DatabaseDSN
 	dbStorage, err := storage.NewDatabase(dbSettings)
 	if err != nil {
 		logger.Log.Warn("Cannot connect to db") // TODO: make critical

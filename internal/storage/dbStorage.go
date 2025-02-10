@@ -18,39 +18,40 @@ type DBFileStoreInfo struct {
 	fStoragePath  string
 }
 
-type DatabaseSettings struct {
-	Host     string
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
-}
-
-func NewDatabaseSettings(host string, user string, password string,
-	DBName string, SSLMode string) *DatabaseSettings {
-	return &DatabaseSettings{host, user, password, DBName, SSLMode}
-}
-
-func (s *DatabaseSettings) String() string {
-	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s",
-		s.Host, s.User, s.Password, s.DBName, s.SSLMode)
-}
+//type DatabaseSettings struct {
+//	Host     string
+//	User     string
+//	Password string
+//	DBName   string
+//	SSLMode  string
+//}
+//
+//func NewDatabaseSettings(host string, user string, password string,
+//	DBName string, SSLMode string) *DatabaseSettings {
+//	return &DatabaseSettings{host, user, password, DBName, SSLMode}
+//}
+//
+//func (s *DatabaseSettings) String() string {
+//	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s",
+//		s.Host, s.User, s.Password, s.DBName, s.SSLMode)
+//}
 
 // Database TODO: refactor server to use database as storage
 type Database struct {
-	connection    *sql.DB
-	settings      *DatabaseSettings
+	connection *sql.DB
+	//settings      *DatabaseSettings
+	settings      string
 	metrics       interface{} // metrics TODO: consider type and necessity
 	fileStoreInfo DBFileStoreInfo
 	fileMu        sync.RWMutex // metrics TODO: consider necessity
 	rwMutex       sync.RWMutex
 }
 
-func NewDatabase(settings *DatabaseSettings) (*Database, error) {
+func NewDatabase(settings string) (*Database, error) {
 	var err error
 	logger.Log.Info("Connecting to database")
 	db := Database{settings: settings}
-	db.connection, err = sql.Open("pgx", db.settings.String())
+	db.connection, err = sql.Open("pgx", db.settings)
 	if err != nil {
 		return &Database{}, fmt.Errorf("can not create new database: %v", err)
 	}
