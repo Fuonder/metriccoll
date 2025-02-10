@@ -50,10 +50,10 @@ func run() error {
 		"videos",
 		"disable")
 	dbStorage, err := storage.NewDatabase(dbSettings)
-	defer dbStorage.Close()
 	if err != nil {
 		logger.Log.Warn("Cannot connect to db") // TODO: make critical
 	}
+	defer dbStorage.Close()
 
 	handler := server.NewHandler(ms, dbStorage)
 
