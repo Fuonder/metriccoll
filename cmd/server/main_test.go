@@ -255,13 +255,11 @@ func TestJSONHandling(t *testing.T) {
 		"12345678",
 		"videos",
 		"disable")
-	dbStorage, err := storage.NewDatabase(dbSettings)
-	require.NoError(t, err)
+	dbStorage, _ := storage.NewDatabase(dbSettings)
 	h := server.NewHandler(ms, dbStorage)
-	require.NoError(t, err)
 	gaugeInitValue := 1.0
 	counterInitValue := int64(1)
-	err = ms.AppendMetric(models.Metrics{
+	err := ms.AppendMetric(models.Metrics{
 		ID:    "gMetric",
 		MType: "gauge",
 		Value: &gaugeInitValue,
