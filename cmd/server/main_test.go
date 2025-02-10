@@ -144,6 +144,7 @@ func TestMetricRouter(t *testing.T) {
 		},
 	}
 	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
+	require.NoError(t, err)
 	dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
 		"videos",
 		"12345678",
@@ -251,6 +252,7 @@ func TestJSONHandling(t *testing.T) {
 		},
 	}
 	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
+	require.NoError(t, err)
 	dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
 		"videos",
 		"12345678",
