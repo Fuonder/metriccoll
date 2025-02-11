@@ -23,12 +23,12 @@ func NewMemStorage() (*memStorage, error) {
 
 func (ms *memStorage) loadMetricsFromFile() error {
 	return fmt.Errorf("loading from file is not yet implemented" +
-		"consider using \"jsonStorage\" or \"dbStorage\" instead")
+		"consider using \"jsonStorage\"")
 }
 
 func (ms *memStorage) DumpMetrics() error {
 	return fmt.Errorf("dump to file is not yet implemented, " +
-		"consider using \"jsonStorage\" or \"dbStorage\" instead")
+		"consider using \"jsonStorage\"")
 }
 
 func (ms *memStorage) AppendMetric(metric models.Metrics) error {

@@ -30,13 +30,16 @@ func isValidContentType(ct string) bool {
 }
 
 type Handler struct {
-	storage   storage.Storage
-	dbStorage storage.Storage
+	storage storage.Storage
 }
 
-func NewHandler(storage storage.Storage, dbStorage storage.Storage) *Handler {
-	return &Handler{storage: storage, dbStorage: dbStorage}
+func NewHandler(storage storage.Storage) *Handler {
+	return &Handler{storage: storage}
 }
+
+//func (h *Handler ) SetStorage(s storage.Storage) {
+//	h.storage = s
+//}
 
 func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("Entering root handler")
@@ -214,7 +217,7 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
-	err := h.dbStorage.CheckConnection()
+	err := h.storage.CheckConnection()
 	if err != nil {
 		logger.Log.Info("can not connect to database", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
