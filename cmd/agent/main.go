@@ -85,7 +85,7 @@ func main() {
 			logger.Log.Info("sending metrics failed", zap.Error(err))
 		}
 		logger.Log.Info("Sending batch")
-		err = SendBatchJson(mc)
+		err = SendBatchJSON(mc)
 		if err != nil {
 			if !errors.Is(err, ErrCouldNotSendRequest) {
 				close(ch)
@@ -219,7 +219,7 @@ func SendMetricsJSON(mc storage.Collection) error {
 	return nil
 }
 
-func SendBatchJson(mc storage.Collection) error {
+func SendBatchJSON(mc storage.Collection) error {
 	client := resty.New()
 	gMetrics := mc.GetGaugeList()
 	cMetrics := mc.GetCounterList()
