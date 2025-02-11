@@ -246,13 +246,13 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 	logger.Log.Info("APPENDING METRICS BATCH")
 	err := h.storage.AppendMetrics(metrics)
 	if err != nil {
-		logger.Log.Debug("can not add metrics", zap.Error(err))
+		logger.Log.Info("can not add metrics", zap.Error(err))
 		if errors.Is(err, ErrInvalidMetricValue) {
-			logger.Log.Debug("one or more invalid metric value/values")
+			logger.Log.Info("one or more invalid metric value/values")
 			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Log.Debug("other error then adding metrics")
+		logger.Log.Info("other error then adding metrics")
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
