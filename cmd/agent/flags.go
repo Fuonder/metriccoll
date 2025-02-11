@@ -18,7 +18,7 @@ var (
 )
 
 var (
-	version  = "0.1.9"
+	version  = "0.1.12"
 	progName = "Fuonder's ya-practicum client"
 	source   = "https://github.com/Fuonder/metriccoll"
 )

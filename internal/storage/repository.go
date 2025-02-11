@@ -8,7 +8,11 @@ import (
 type Storage interface {
 	GetMetricByName(name string, mType string) (models.Metrics, error)
 	AppendMetric(metric models.Metrics) error
+	AppendMetrics([]models.Metrics) error
 	GetAllMetrics() []models.Metrics
+	DumpMetrics() error
+	loadMetricsFromFile() error
+	CheckConnection() error
 }
 
 type Collection interface {
