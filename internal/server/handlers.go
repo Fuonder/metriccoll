@@ -236,14 +236,14 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 	}
 	var metrics []models.Metrics
 	var updatedMetrics []models.Metrics
-	logger.Log.Debug("DECODING BATCH")
+	logger.Log.Info("DECODING BATCH")
 	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
 		logger.Log.Debug("json decode error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
-	logger.Log.Debug("APPENDING METRICS BATCH")
+	logger.Log.Info("APPENDING METRICS BATCH")
 	err := h.storage.AppendMetrics(metrics)
 	if err != nil {
 		logger.Log.Debug("can not add metrics", zap.Error(err))
@@ -256,7 +256,7 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	logger.Log.Debug("FORMING RESP METRICS BATCH")
+	logger.Log.Info("FORMING RESP METRICS BATCH")
 	for _, mt := range metrics {
 		mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
 		if err != nil {
@@ -272,7 +272,7 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 		}
 		updatedMetrics = append(updatedMetrics, mtRes)
 	}
-	logger.Log.Debug("MARSHALING FINAL METRICS BATCH")
+	logger.Log.Info("MARSHALING FINAL METRICS BATCH")
 	resp, err := json.MarshalIndent(updatedMetrics, "", "    ")
 	if err != nil {
 		logger.Log.Info("json marshal error", zap.Error(err))
