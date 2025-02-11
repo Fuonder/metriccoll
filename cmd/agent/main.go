@@ -71,18 +71,67 @@ func main() {
 	ch := make(chan struct{})
 	mc.UpdateValues(CliOpt.PollInterval, ch)
 
+	timeouts := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+	maxRetries := 3
+
 	for {
-		time.Sleep(CliOpt.ReportInterval)
-		logger.Log.Info("sending metrics")
-		err = SendMetricsJSON(mc)
-		if err != nil {
-			if !errors.Is(err, ErrCouldNotSendRequest) {
-				close(ch)
-				time.Sleep(2 * time.Second)
-				log.Fatal(err)
+		for i := 0; i < maxRetries; i++ {
+			time.Sleep(CliOpt.ReportInterval)
+			logger.Log.Info("sending metrics")
+			err = SendMetricsJSON(mc)
+			if err == nil {
+				continue
 			}
-			logger.Log.Info("sending metrics failed", zap.Error(err))
+			if i < len(timeouts) {
+				logger.Log.Info("sending metrics failed", zap.Error(err))
+				logger.Log.Info("retrying after timeout",
+					zap.Duration("timeout", timeouts[i]),
+					zap.Int("retry-count", i+1))
+				time.Sleep(timeouts[i])
+			}
 		}
+		if err != nil {
+			close(ch)
+			time.Sleep(2 * time.Second)
+			log.Fatal(err)
+		}
+		for i := 0; i < maxRetries; i++ {
+			logger.Log.Info("sending metrics")
+			err = SendBatchJSON(mc)
+			if err == nil {
+				continue
+			}
+			if i < len(timeouts) {
+				logger.Log.Info("sending batch failed", zap.Error(err))
+				logger.Log.Info("retrying after timeout",
+					zap.Duration("timeout", timeouts[i]),
+					zap.Int("retry-count", i+1))
+			}
+		}
+		if err != nil {
+			close(ch)
+			time.Sleep(2 * time.Second)
+			log.Fatal(err)
+		}
+
+		//if err != nil {
+		//	if !errors.Is(err, ErrCouldNotSendRequest) {
+		//		close(ch)
+		//		time.Sleep(2 * time.Second)
+		//		log.Fatal(err)
+		//	}
+		//	logger.Log.Info("sending metrics failed", zap.Error(err))
+		//}
+		//logger.Log.Info("Sending batch")
+		//err = SendBatchJSON(mc)
+		//if err != nil {
+		//	if !errors.Is(err, ErrCouldNotSendRequest) {
+		//		close(ch)
+		//		time.Sleep(2 * time.Second)
+		//		log.Fatal(err)
+		//	}
+		//	logger.Log.Info("sending batch failed", zap.Error(err))
+		//}
 		//err = testAll()
 		//if err != nil {
 		//	close(ch)
@@ -204,6 +253,59 @@ func SendMetricsJSON(mc storage.Collection) error {
 				zap.String("resp body", string(resp.Body())))
 			return ErrWrongResponseStatus
 		}
+	}
+	return nil
+}
+
+func SendBatchJSON(mc storage.Collection) error {
+	client := resty.New()
+	gMetrics := mc.GetGaugeList()
+	cMetrics := mc.GetCounterList()
+	var allMetrics []models.Metrics
+
+	url := "http://" + CliOpt.NetAddr.String() + "/updates/"
+
+	for name, value := range cMetrics {
+		mt := models.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: (*int64)(&value),
+			Value: nil,
+		}
+		allMetrics = append(allMetrics, mt)
+	}
+	for name, value := range gMetrics {
+		mt := models.Metrics{
+			ID:    name,
+			MType: "gauge",
+			Delta: nil,
+			Value: (*float64)(&value),
+		}
+		allMetrics = append(allMetrics, mt)
+	}
+
+	body, err := json.Marshal(allMetrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	cBody, err := gzipCompress(body)
+	if err != nil {
+		return fmt.Errorf("failed to compress request body: %w", err)
+	}
+
+	resp, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Accept-Encoding", "gzip").
+		SetBody(cBody).
+		Post(url)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
+	}
+	if resp.StatusCode() != 200 {
+		logger.Log.Info("", zap.Any("Body", string(resp.Body())))
+		return ErrWrongResponseStatus
 	}
 	return nil
 }

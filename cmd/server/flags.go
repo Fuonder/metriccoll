@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	version  = "0.1.9"
+	version  = "0.1.13"
 	progName = "Fuonder's ya-practicum server"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -64,6 +64,7 @@ type Flags struct {
 	StoreInterval   time.Duration
 	FileStoragePath string
 	Restore         bool
+	DatabaseDSN     string
 }
 
 func (f *Flags) String() string {
@@ -130,6 +131,7 @@ var (
 		StoreInterval:   300 * time.Second,
 		FileStoragePath: "./metrics.dump",
 		Restore:         true,
+		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
 	}
 
 	netAddr = &netAddress{
@@ -146,6 +148,7 @@ func parseFlags() error {
 	flag.Int64Var(&sIntervalInt64, "i", 300, "interval for metrics dump in seconds")
 	flag.StringVar(&FlagsOptions.FileStoragePath, "f", "./metrics.dump", "Path to metrics dump file")
 	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")
+	flag.StringVar(&FlagsOptions.DatabaseDSN, "d", "", "Database DSN")
 
 	flag.Parse()
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
@@ -192,6 +195,10 @@ func parseFlags() error {
 		if err != nil {
 			return fmt.Errorf("invalid RESTORE value: %w", err)
 		}
+	}
+
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		FlagsOptions.DatabaseDSN = envDatabaseDSN
 	}
 	return nil
 }
