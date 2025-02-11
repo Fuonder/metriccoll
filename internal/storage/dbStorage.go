@@ -80,7 +80,7 @@ func (db *Database) CreateTables() error {
 	CREATE TABLE IF NOT EXISTS counter_metrics (
 		id TEXT PRIMARY KEY,
 		type TEXT NOT NULL,
-		delta integer
+		delta BIGINT
 	);
 	`
 	_, err = db.connection.ExecContext(ctx, query)
