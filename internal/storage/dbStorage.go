@@ -20,6 +20,18 @@ import (
 //	fStoragePath  string
 //}
 
+var timeouts = []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+var maxRetries = 3
+
+//func isConnectionError(err error) bool {
+//	var pgErr *pgconn.PgError
+//	if errors.As(err, &pgErr) {
+//		if pgErr.SQLState == "08001" || pgErr.SQLState == "08006" || pgErr.SQLState == "08003" {
+//			return true
+//		}
+//	}
+//}
+
 // Database TODO: write tests
 type Database struct {
 	connection *sql.DB
@@ -33,6 +45,7 @@ func NewDatabase(settings string) (*Database, error) {
 	var err error
 	logger.Log.Info("Connecting to database")
 	db := Database{settings: settings}
+
 	db.connection, err = sql.Open("pgx", db.settings)
 	if err != nil {
 		return &Database{}, fmt.Errorf("can not create new database: %v", err)
@@ -80,6 +93,7 @@ func (db *Database) CreateTables() error {
 }
 
 func (db *Database) CheckConnection() error {
+	var err error
 	logger.Log.Info("Checking db connection")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -87,7 +101,20 @@ func (db *Database) CheckConnection() error {
 		logger.Log.Warn("no active connection with db")
 		return fmt.Errorf("no active connection with db")
 	}
-	if err := db.connection.PingContext(ctx); err != nil {
+	for i := 0; i < maxRetries; i++ {
+		err = db.connection.PingContext(ctx)
+		if err == nil {
+			break
+		}
+		if i < len(timeouts) {
+			logger.Log.Info("can not ping database", zap.Error(err))
+			logger.Log.Info("retrying after timeout",
+				zap.Duration("timeout", timeouts[i]),
+				zap.Int("retry-count", i+1))
+			time.Sleep(timeouts[i])
+		}
+	}
+	if err != nil {
 		return fmt.Errorf("can not ping database: %v", err)
 	}
 	logger.Log.Info("Connection - OK")
