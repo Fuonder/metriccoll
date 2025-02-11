@@ -75,6 +75,7 @@ func main() {
 		time.Sleep(CliOpt.ReportInterval)
 		logger.Log.Info("sending metrics")
 		err = SendMetricsJSON(mc)
+
 		if err != nil {
 			if !errors.Is(err, ErrCouldNotSendRequest) {
 				close(ch)
@@ -82,6 +83,16 @@ func main() {
 				log.Fatal(err)
 			}
 			logger.Log.Info("sending metrics failed", zap.Error(err))
+		}
+		logger.Log.Info("Sending batch")
+		err = SendBatchJson(mc)
+		if err != nil {
+			if !errors.Is(err, ErrCouldNotSendRequest) {
+				close(ch)
+				time.Sleep(2 * time.Second)
+				log.Fatal(err)
+			}
+			logger.Log.Info("sending batch failed", zap.Error(err))
 		}
 		//err = testAll()
 		//if err != nil {
@@ -204,6 +215,59 @@ func SendMetricsJSON(mc storage.Collection) error {
 				zap.String("resp body", string(resp.Body())))
 			return ErrWrongResponseStatus
 		}
+	}
+	return nil
+}
+
+func SendBatchJson(mc storage.Collection) error {
+	client := resty.New()
+	gMetrics := mc.GetGaugeList()
+	cMetrics := mc.GetCounterList()
+	var allMetrics []models.Metrics
+
+	url := "http://" + CliOpt.NetAddr.String() + "/updates/"
+
+	for name, value := range cMetrics {
+		mt := models.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: (*int64)(&value),
+			Value: nil,
+		}
+		allMetrics = append(allMetrics, mt)
+	}
+	for name, value := range gMetrics {
+		mt := models.Metrics{
+			ID:    name,
+			MType: "gauge",
+			Delta: nil,
+			Value: (*float64)(&value),
+		}
+		allMetrics = append(allMetrics, mt)
+	}
+
+	body, err := json.Marshal(allMetrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	cBody, err := gzipCompress(body)
+	if err != nil {
+		return fmt.Errorf("failed to compress request body: %w", err)
+	}
+
+	resp, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Accept-Encoding", "gzip").
+		SetBody(cBody).
+		Post(url)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
+	}
+	if resp.StatusCode() != 200 {
+		logger.Log.Info("", zap.Any("Body", string(resp.Body())))
+		return ErrWrongResponseStatus
 	}
 	return nil
 }

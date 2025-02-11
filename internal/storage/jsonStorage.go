@@ -178,3 +178,13 @@ func (st *JSONStorage) GetAllMetrics() []models.Metrics {
 func (st *JSONStorage) CheckConnection() error {
 	return fmt.Errorf("database offline")
 }
+
+func (st *JSONStorage) AppendMetrics(metrics []models.Metrics) error {
+	for _, metric := range metrics {
+		err := st.AppendMetric(metric)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

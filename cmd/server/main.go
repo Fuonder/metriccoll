@@ -86,6 +86,9 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Route("/ping", func(router chi.Router) {
 		router.Get("/", logger.HanlderWithLogger(server.GzipMiddleware(h.DBPingHandler)))
 	})
+	router.Route("/updates", func(router chi.Router) {
+		router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.MultipleUpdateHandler)))
+	})
 	router.Route("/update", func(router chi.Router) {
 		router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.JSONUpdateHandler)))
 		router.Route("/{mType}", func(router chi.Router) {

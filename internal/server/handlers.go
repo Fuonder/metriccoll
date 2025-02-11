@@ -227,6 +227,64 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte(""))
 }
 
+func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	if r.Header.Get("Content-Type") != "application/json" {
+		logger.Log.Info("Invalid content type",
+			zap.String("Content-Type", r.Header.Get("Content-Type")))
+		http.Error(rw, "Invalid content type", http.StatusBadRequest)
+	}
+	var metrics []models.Metrics
+	var updatedMetrics []models.Metrics
+	logger.Log.Debug("DECODING BATCH")
+	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+		logger.Log.Debug("json decode error", zap.Error(err))
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	logger.Log.Debug("APPENDING METRICS BATCH")
+	err := h.storage.AppendMetrics(metrics)
+	if err != nil {
+		logger.Log.Debug("can not add metrics", zap.Error(err))
+		if errors.Is(err, ErrInvalidMetricValue) {
+			logger.Log.Debug("one or more invalid metric value/values")
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Log.Debug("other error then adding metrics")
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logger.Log.Debug("FORMING RESP METRICS BATCH")
+	for _, mt := range metrics {
+		mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
+		if err != nil {
+			logger.Log.Info("can not get metric by name", zap.Error(err))
+			if errors.Is(err, ErrInvalidMetricValue) {
+				logger.Log.Info("invalid metric value")
+				http.Error(rw, err.Error(), http.StatusBadRequest)
+				return
+			}
+			logger.Log.Info("other error then getting metric")
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
+		updatedMetrics = append(updatedMetrics, mtRes)
+	}
+	logger.Log.Debug("MARSHALING FINAL METRICS BATCH")
+	resp, err := json.MarshalIndent(updatedMetrics, "", "    ")
+	if err != nil {
+		logger.Log.Info("json marshal error", zap.Error(err))
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	} else {
+		logger.Log.Info("Marshaling ok - sending respinse with status 200")
+		rw.WriteHeader(http.StatusOK)
+		rw.Write(resp)
+	}
+}
+
 func (h *Handler) CheckMethod(next http.Handler) http.Handler {
 	logger.Log.Debug("checking method")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

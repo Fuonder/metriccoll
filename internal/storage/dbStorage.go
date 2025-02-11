@@ -146,6 +146,7 @@ func (db *Database) AppendMetric(metric models.Metrics) error {
 	if db.connection == nil {
 		return fmt.Errorf("no active connection with db")
 	}
+
 	if metric.MType == "gauge" {
 		if metric.Value == nil {
 			return ErrInvalidMetricValue
@@ -222,6 +223,73 @@ func (db *Database) GetAllMetrics() []models.Metrics {
 		return nil
 	}
 	return metrics
+}
+
+func (db *Database) AppendMetrics(metrics []models.Metrics) error {
+	db.rwMutex.Lock()
+	defer db.rwMutex.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if db.connection == nil {
+		return fmt.Errorf("no active connection with db")
+	}
+
+	tx, err := db.connection.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmtGauge, err := tx.PrepareContext(ctx,
+		`
+			INSERT INTO gauge_metrics (id, type, value)
+			VALUES ($1, 'gauge', $2)
+			ON CONFLICT (id)
+			DO UPDATE SET value = EXCLUDED.value;
+		`)
+	if err != nil {
+		return err
+	}
+	defer stmtGauge.Close()
+	stmtCounter, err := tx.PrepareContext(ctx,
+		`
+			INSERT INTO counter_metrics (id, type, delta)
+			VALUES ($1, 'counter', $2)
+			ON CONFLICT (id)
+			DO UPDATE SET delta = counter_metrics.delta + EXCLUDED.delta;
+		`)
+	if err != nil {
+		return err
+	}
+	defer stmtCounter.Close()
+
+	for _, m := range metrics {
+		if m.MType == "gauge" {
+			if m.Value == nil {
+				return ErrInvalidMetricValue
+			}
+			_, err = stmtGauge.ExecContext(ctx,
+				m.ID,
+				m.Value)
+			if err != nil {
+				return err
+			}
+		} else if m.MType == "counter" {
+			if m.Delta == nil {
+				return ErrInvalidMetricValue
+			}
+			_, err = stmtCounter.ExecContext(ctx,
+				m.ID,
+				m.Delta)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("metric type: %s is not supported", m.MType)
+		}
+	}
+	return tx.Commit()
 }
 
 func (db *Database) DumpMetrics() error {

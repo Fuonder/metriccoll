@@ -20,6 +20,15 @@ func NewMemStorage() (*memStorage, error) {
 	}
 	return &ms, nil
 }
+func (ms *memStorage) AppendMetrics(metrics []models.Metrics) error {
+	for _, metric := range metrics {
+		err := ms.AppendMetric(metric)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (ms *memStorage) loadMetricsFromFile() error {
 	return fmt.Errorf("loading from file is not yet implemented" +
