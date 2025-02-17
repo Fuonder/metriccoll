@@ -24,7 +24,7 @@ var (
 
 type senderFunc func(storage.Collection) error
 
-func retriableHttpSend(sender senderFunc, st storage.Collection) error {
+func retriableHTTPSend(sender senderFunc, st storage.Collection) error {
 	var err error
 	timeouts := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
 	maxRetries := 3
@@ -89,13 +89,13 @@ func main() {
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		err = retriableHttpSend(SendMetricsJSON, mc)
+		err = retriableHTTPSend(SendMetricsJSON, mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
 			log.Fatal(err)
 		}
-		err = retriableHttpSend(SendBatchJSON, mc)
+		err = retriableHTTPSend(SendBatchJSON, mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
