@@ -15,7 +15,19 @@ import (
 	"strings"
 )
 
-var ErrInvalidMetricValue = errors.New("invalid metric value")
+type ErrorResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Details string `json:"details,omitempty"` // for future possible use
+}
+
+var (
+	ErrMetricReaderNotInitialized      = ErrorResponse{Code: http.StatusInternalServerError, Message: "metricReader object not initialized"}
+	ErrMetricWriterNotInitialized      = ErrorResponse{Code: http.StatusInternalServerError, Message: "metricWriter object not initialized"}
+	ErrMetricFileHandlerNotInitialized = ErrorResponse{Code: http.StatusInternalServerError, Message: "metricFileHandler object not initialized"}
+	ErrMetricDBHandlerNotInitialized   = ErrorResponse{Code: http.StatusInternalServerError, Message: "metricDatabaseHandler object not initialized"}
+	ErrInvalidMetricValue              = errors.New("invalid metric value")
+)
 
 var validContentTypes = map[string]struct{}{
 	"text/plain":                {},
@@ -30,24 +42,42 @@ func isValidContentType(ct string) bool {
 }
 
 type Handler struct {
-	storage storage.Storage
+	mReader      storage.MetricReader
+	mWriter      storage.MetricWriter
+	mFileHandler storage.MetricFileHandler
+	mDBHandler   storage.MetricDatabaseHandler
 }
 
-func NewHandler(storage storage.Storage) *Handler {
-	return &Handler{storage: storage}
+func NewHandler(mReader storage.MetricReader,
+	mWriter storage.MetricWriter,
+	mFileHandler storage.MetricFileHandler,
+	mDBHandler storage.MetricDatabaseHandler) *Handler {
+	h := Handler{
+		mReader:      mReader,
+		mWriter:      mWriter,
+		mFileHandler: mFileHandler,
+		mDBHandler:   mDBHandler,
+	}
+	return &h
 }
-
-//func (h *Handler ) SetStorage(s storage.Storage) {
-//	h.storage = s
-//}
 
 func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
+
+	if h.mReader == nil {
+		// TODO: consider using html template for error page
+		rw.Header().Set("Content-Type", "text/html")
+		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
+		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
+		rw.Write(resp)
+		return
+	}
+
 	logger.Log.Debug("Entering root handler")
 
 	var metricList []models.Metrics
 	logger.Log.Debug("creating metric list")
 
-	metricList = h.storage.GetAllMetrics()
+	metricList = h.mReader.GetAllMetrics()
 	var stringMetricList []string
 
 	for _, m := range metricList {
@@ -74,11 +104,18 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
+	if h.mReader == nil {
+		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
+		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
+		rw.Write(resp)
+		return
+	}
+
 	logger.Log.Debug("entering value handler")
 	mType := chi.URLParam(r, "mType")
 	mName := chi.URLParam(r, "mName")
 
-	metric, err := h.storage.GetMetricByName(mName, mType)
+	metric, err := h.mReader.GetMetricByName(mName, mType)
 	if err != nil {
 		logger.Log.Info("get metric by name error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusNotFound)
@@ -93,6 +130,13 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
+	if h.mWriter == nil {
+		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
+		rw.WriteHeader(ErrMetricWriterNotInitialized.Code)
+		rw.Write(resp)
+		return
+	}
+
 	logger.Log.Debug("Updating metric")
 
 	mType := chi.URLParam(r, "mType")
@@ -101,7 +145,7 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 	if mType == "gauge" {
 		value, _ := models.CheckTypeGauge(mValue)
-		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "gauge", Value: (*float64)(&value)})
+		err := h.mWriter.AppendMetric(models.Metrics{ID: mName, MType: "gauge", Value: (*float64)(&value)})
 		if err != nil {
 			logger.Log.Info("can not add metric", zap.Error(err))
 			if errors.Is(err, ErrInvalidMetricValue) {
@@ -115,7 +159,7 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	} else if mType == "counter" {
 		value, _ := models.CheckTypeCounter(mValue)
 
-		err := h.storage.AppendMetric(models.Metrics{ID: mName, MType: "counter", Delta: (*int64)(&value)})
+		err := h.mWriter.AppendMetric(models.Metrics{ID: mName, MType: "counter", Delta: (*int64)(&value)})
 		if err != nil {
 			logger.Log.Info("can not add metric", zap.Error(err))
 			if errors.Is(err, ErrInvalidMetricValue) {
@@ -134,6 +178,20 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
+	if h.mReader == nil {
+		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
+		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
+		rw.Write(resp)
+		return
+	}
+
+	if h.mWriter == nil {
+		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
+		rw.WriteHeader(ErrMetricWriterNotInitialized.Code)
+		rw.Write(resp)
+		return
+	}
+
 	logger.Log.Debug("entering json update handler")
 	if r.Header.Get("Content-Type") != "application/json" {
 		logger.Log.Info("invalid content type",
@@ -148,7 +206,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	err := h.storage.AppendMetric(mt)
+	err := h.mWriter.AppendMetric(mt)
 	if err != nil {
 		logger.Log.Debug("can not add metric", zap.Error(err))
 		if errors.Is(err, ErrInvalidMetricValue) {
@@ -160,7 +218,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
+	mtRes, err := h.mReader.GetMetricByName(mt.ID, mt.MType)
 	if err != nil {
 		logger.Log.Info("can not get metric by name", zap.Error(err))
 		if errors.Is(err, ErrInvalidMetricValue) {
@@ -188,6 +246,13 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
+	if h.mReader == nil {
+		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
+		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
+		rw.Write(resp)
+		return
+	}
+
 	if r.Header.Get("Content-Type") != "application/json" {
 		logger.Log.Info("Invalid content type",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
@@ -200,7 +265,7 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	mt, err := h.storage.GetMetricByName(metric.ID, metric.MType)
+	mt, err := h.mReader.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
 		logger.Log.Info("metric not found", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusNotFound)
@@ -217,7 +282,14 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
-	err := h.storage.CheckConnection()
+	if h.mDBHandler == nil {
+		resp, _ := json.MarshalIndent(ErrMetricDBHandlerNotInitialized, "", "    ")
+		rw.WriteHeader(ErrMetricDBHandlerNotInitialized.Code)
+		rw.Write(resp)
+		return
+	}
+
+	err := h.mDBHandler.CheckConnection()
 	if err != nil {
 		logger.Log.Info("can not connect to database", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -229,6 +301,20 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
+
+	if h.mWriter == nil {
+		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
+		rw.WriteHeader(ErrMetricWriterNotInitialized.Code)
+		rw.Write(resp)
+		return
+	}
+	if h.mReader == nil {
+		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
+		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
+		rw.Write(resp)
+		return
+	}
+
 	if r.Header.Get("Content-Type") != "application/json" {
 		logger.Log.Info("Invalid content type",
 			zap.String("Content-Type", r.Header.Get("Content-Type")))
@@ -244,7 +330,7 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 	}
 	defer r.Body.Close()
 	logger.Log.Info("APPENDING METRICS BATCH")
-	err := h.storage.AppendMetrics(metrics)
+	err := h.mWriter.AppendMetrics(metrics)
 	if err != nil {
 		logger.Log.Info("can not add metrics", zap.Error(err))
 		if errors.Is(err, ErrInvalidMetricValue) {
@@ -258,7 +344,7 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 	}
 	logger.Log.Info("FORMING RESP METRICS BATCH")
 	for _, mt := range metrics {
-		mtRes, err := h.storage.GetMetricByName(mt.ID, mt.MType)
+		mtRes, err := h.mReader.GetMetricByName(mt.ID, mt.MType)
 		if err != nil {
 			logger.Log.Info("can not get metric by name", zap.Error(err))
 			if errors.Is(err, ErrInvalidMetricValue) {

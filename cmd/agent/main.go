@@ -22,6 +22,30 @@ var (
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
 
+type senderFunc func(storage.Collection) error
+
+func retriableHttpSend(sender senderFunc, st storage.Collection) error {
+	var err error
+	timeouts := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+	maxRetries := 3
+
+	for i := 0; i < maxRetries; i++ {
+		logger.Log.Info("sending metrics")
+		err = sender(st)
+		if err == nil {
+			return nil
+		}
+		if i < len(timeouts) {
+			logger.Log.Info("sending metrics failed", zap.Error(err))
+			logger.Log.Info("retrying after timeout",
+				zap.Duration("timeout", timeouts[i]),
+				zap.Int("retry-count", i+1))
+			time.Sleep(timeouts[i])
+		}
+	}
+	return err
+}
+
 func checkServerConnection(url string) error {
 	// Устанавливаем таймаут для запроса
 	client := http.Client{
@@ -53,7 +77,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//fmt.Println("metric collection creation success")
 
 	err = parseFlags()
 	if err != nil {
@@ -61,77 +84,24 @@ func main() {
 	}
 	logger.Log.Info("parse flags success")
 
-	//err = checkServerConnection("http://" + CliOpt.NetAddr.String() + "/")
-	//if err != nil {
-	//	fmt.Println("Connection check failed:", err)
-	//} else {
-	//	fmt.Println("Server is reachable!")
-	//}
-
 	ch := make(chan struct{})
 	mc.UpdateValues(CliOpt.PollInterval, ch)
 
-	timeouts := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
-	maxRetries := 3
-
 	for {
-		for i := 0; i < maxRetries; i++ {
-			time.Sleep(CliOpt.ReportInterval)
-			logger.Log.Info("sending metrics")
-			err = SendMetricsJSON(mc)
-			if err == nil {
-				continue
-			}
-			if i < len(timeouts) {
-				logger.Log.Info("sending metrics failed", zap.Error(err))
-				logger.Log.Info("retrying after timeout",
-					zap.Duration("timeout", timeouts[i]),
-					zap.Int("retry-count", i+1))
-				time.Sleep(timeouts[i])
-			}
-		}
+		time.Sleep(CliOpt.ReportInterval)
+		err = retriableHttpSend(SendMetricsJSON, mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
 			log.Fatal(err)
 		}
-		for i := 0; i < maxRetries; i++ {
-			logger.Log.Info("sending metrics")
-			err = SendBatchJSON(mc)
-			if err == nil {
-				continue
-			}
-			if i < len(timeouts) {
-				logger.Log.Info("sending batch failed", zap.Error(err))
-				logger.Log.Info("retrying after timeout",
-					zap.Duration("timeout", timeouts[i]),
-					zap.Int("retry-count", i+1))
-			}
-		}
+		err = retriableHttpSend(SendBatchJSON, mc)
 		if err != nil {
 			close(ch)
 			time.Sleep(2 * time.Second)
 			log.Fatal(err)
 		}
 
-		//if err != nil {
-		//	if !errors.Is(err, ErrCouldNotSendRequest) {
-		//		close(ch)
-		//		time.Sleep(2 * time.Second)
-		//		log.Fatal(err)
-		//	}
-		//	logger.Log.Info("sending metrics failed", zap.Error(err))
-		//}
-		//logger.Log.Info("Sending batch")
-		//err = SendBatchJSON(mc)
-		//if err != nil {
-		//	if !errors.Is(err, ErrCouldNotSendRequest) {
-		//		close(ch)
-		//		time.Sleep(2 * time.Second)
-		//		log.Fatal(err)
-		//	}
-		//	logger.Log.Info("sending batch failed", zap.Error(err))
-		//}
 		//err = testAll()
 		//if err != nil {
 		//	close(ch)

@@ -35,22 +35,26 @@ func NewFileStoreInfo(fPath string, interval time.Duration, fLoadFromFile bool) 
 
 type JSONStorage struct {
 	metrics  []models.Metrics
-	FileInfo *FileStoreInfo
+	fileInfo *FileStoreInfo
 	mu       sync.RWMutex
 	fileMu   sync.RWMutex
 }
 
 func NewJSONStorage(fileStoreInfo *FileStoreInfo) (*JSONStorage, error) {
 
-	st := JSONStorage{metrics: make([]models.Metrics, 0), FileInfo: fileStoreInfo}
+	st := JSONStorage{metrics: make([]models.Metrics, 0), fileInfo: fileStoreInfo}
 
-	if st.FileInfo.fLoadFromFile {
+	if st.fileInfo.fLoadFromFile {
 		err := st.loadMetricsFromFile()
 		if err != nil {
 			return nil, err
 		}
 	}
 	return &st, nil
+}
+
+func (st *JSONStorage) IsSyncFileMode() bool {
+	return st.fileInfo.Sync
 }
 
 func (st *JSONStorage) DumpMetrics() error {
@@ -60,7 +64,7 @@ func (st *JSONStorage) DumpMetrics() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(st.FileInfo.fPath, data, OsAllRw)
+	err = os.WriteFile(st.fileInfo.fPath, data, OsAllRw)
 	if err != nil {
 		return err
 	}
@@ -68,19 +72,19 @@ func (st *JSONStorage) DumpMetrics() error {
 }
 
 func (st *JSONStorage) loadMetricsFromFile() error {
-	statTest, err := os.Stat(st.FileInfo.fPath)
+	statTest, err := os.Stat(st.fileInfo.fPath)
 	if os.IsNotExist(err) {
 		logger.Log.Info("can not find metrcis file",
-			zap.String("Expected file", st.FileInfo.fPath),
+			zap.String("Expected file", st.fileInfo.fPath),
 			zap.Error(err))
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("can not find metrcis file \"%s\": %w", st.FileInfo.fPath, err)
+		return fmt.Errorf("can not find metrcis file \"%s\": %w", st.fileInfo.fPath, err)
 	}
 	if statTest.Size() == 0 {
 		return nil
 	}
-	file, err := os.OpenFile(st.FileInfo.fPath, os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile(st.fileInfo.fPath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
@@ -109,7 +113,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 					return ErrInvalidMetricValue
 				}
 				*st.metrics[i].Value = *metric.Value
-				if st.FileInfo.Sync {
+				if st.fileInfo.Sync {
 					err := st.DumpMetrics()
 					if err != nil {
 						return err
@@ -121,7 +125,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 					return ErrInvalidMetricValue
 				}
 				*st.metrics[i].Delta += *metric.Delta
-				if st.FileInfo.Sync {
+				if st.fileInfo.Sync {
 					err := st.DumpMetrics()
 					if err != nil {
 						return err
@@ -138,7 +142,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
-		if st.FileInfo.Sync {
+		if st.fileInfo.Sync {
 			err := st.DumpMetrics()
 			if err != nil {
 				return err
@@ -150,7 +154,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
-		if st.FileInfo.Sync {
+		if st.fileInfo.Sync {
 			err := st.DumpMetrics()
 			if err != nil {
 				return err
@@ -173,10 +177,6 @@ func (st *JSONStorage) GetMetricByName(name string, mType string) (models.Metric
 
 func (st *JSONStorage) GetAllMetrics() []models.Metrics {
 	return st.metrics
-}
-
-func (st *JSONStorage) CheckConnection() error {
-	return fmt.Errorf("database offline")
 }
 
 func (st *JSONStorage) AppendMetrics(metrics []models.Metrics) error {
