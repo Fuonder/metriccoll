@@ -182,10 +182,10 @@ func (c *PSQLConnection) AppendCounterMetric(ctx context.Context, metric models.
 
 func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, error) {
 	var metrics []models.Metrics
-	query_gauge := `SELECT id, type, delta FROM counter_metrics`
-	query_counter := `SELECT id, type, value FROM gauge_metrics`
+	queryGauge := `SELECT id, type, delta FROM counter_metrics`
+	queryCounter := `SELECT id, type, value FROM gauge_metrics`
 
-	rowsCounter, err := c.db.QueryContext(ctx, query_counter)
+	rowsCounter, err := c.db.QueryContext(ctx, queryCounter)
 	if err != nil {
 		return []models.Metrics{}, err
 	}
@@ -201,7 +201,7 @@ func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, e
 		return []models.Metrics{}, err
 	}
 
-	rowsGauge, err := c.db.QueryContext(ctx, query_gauge)
+	rowsGauge, err := c.db.QueryContext(ctx, queryGauge)
 	if err != nil {
 		return []models.Metrics{}, err
 	}
