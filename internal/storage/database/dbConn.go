@@ -278,5 +278,5 @@ func (c *PSQLConnection) AppendBatch(ctx context.Context, metrics []models.Metri
 }
 
 func (c *PSQLConnection) Close() error {
-	return c.Close()
+	return c.db.Close()
 }
