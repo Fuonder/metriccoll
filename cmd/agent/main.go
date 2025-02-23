@@ -89,12 +89,12 @@ func main() {
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		err = retriableHTTPSend(SendMetricsJSON, mc)
-		if err != nil {
-			close(ch)
-			time.Sleep(2 * time.Second)
-			log.Fatal(err)
-		}
+		//err = retriableHTTPSend(SendMetricsJSON, mc)
+		//if err != nil {
+		//	close(ch)
+		//	time.Sleep(2 * time.Second)
+		//	log.Fatal(err)
+		//}
 		err = retriableHTTPSend(SendBatchJSON, mc)
 		if err != nil {
 			close(ch)
