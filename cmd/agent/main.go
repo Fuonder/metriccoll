@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -87,8 +88,9 @@ func main() {
 	}
 	logger.Log.Info("parse flags success")
 
-	ch := make(chan struct{})
-	mc.UpdateValues(CliOpt.PollInterval, ch)
+	ctx, cancel := context.WithCancel(context.Background())
+	mc.UpdateValues(ctx, CliOpt.PollInterval)
+	defer cancel()
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
@@ -100,7 +102,7 @@ func main() {
 		//}
 		err = retriableHTTPSend(SendBatchJSON, mc)
 		if err != nil {
-			close(ch)
+			cancel()
 			time.Sleep(2 * time.Second)
 			log.Fatal(err)
 		}
