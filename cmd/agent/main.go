@@ -268,19 +268,33 @@ func SendBatchJSON(mc storage.Collection) error {
 		return fmt.Errorf("failed to compress request body: %w", err)
 	}
 
+	var resp *resty.Response
+
 	if CliOpt.HashKey != "" {
+		logger.Log.Info("Creating HMAC")
 		h := hmac.New(sha256.New, []byte(CliOpt.HashKey))
 		h.Write(cBody)
 		s := h.Sum(nil)
-		client.R().SetHeader("HashSHA256", base64.URLEncoding.EncodeToString(s))
+		logger.Log.Info("HASH", zap.String("HASH", base64.URLEncoding.EncodeToString(s)))
+		logger.Log.Info("Writing HMAC")
+		logger.Log.Info("Sending batch with HMAC")
+		resp, err = client.R().
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Accept-Encoding", "gzip").
+			SetHeader("HashSHA256", base64.URLEncoding.EncodeToString(s)).
+			SetBody(cBody).
+			Post(url)
+	} else {
+		logger.Log.Info("Sending batch")
+		resp, err = client.R().
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Accept-Encoding", "gzip").
+			SetBody(cBody).
+			Post(url)
 	}
-	
-	resp, err := client.R().
-		SetHeader("Content-Type", "application/json").
-		SetHeader("Content-Encoding", "gzip").
-		SetHeader("Accept-Encoding", "gzip").
-		SetBody(cBody).
-		Post(url)
+
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
 	}

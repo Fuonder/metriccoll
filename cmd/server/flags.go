@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	version  = "0.1.13"
+	version  = "0.1.14"
 	progName = "Fuonder's ya-practicum server"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -65,15 +65,24 @@ type Flags struct {
 	FileStoragePath string
 	Restore         bool
 	DatabaseDSN     string
+	HashKey         string
 }
 
 func (f *Flags) String() string {
-	return fmt.Sprintf("netAddr: %s, LogLevel: %s, StoreInterval: %s, FileStoragePath: %s, Restore: %v",
+	return fmt.Sprintf("netAddr: %s, "+
+		"LogLevel: %s, "+
+		"StoreInterval: %s, "+
+		"FileStoragePath: %s, "+
+		"Restore: %v, "+
+		"DatabaseDSN: %s, "+
+		"HashKey: %s",
 		f.NetAddress.String(),
 		f.LogLevel,
 		f.StoreInterval.String(),
 		f.FileStoragePath,
 		f.Restore,
+		f.DatabaseDSN,
+		f.HashKey,
 	)
 }
 
@@ -132,6 +141,7 @@ var (
 		FileStoragePath: "./metrics.dump",
 		Restore:         true,
 		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
+		HashKey:         "",
 	}
 
 	netAddr = &netAddress{
@@ -149,8 +159,10 @@ func parseFlags() error {
 	flag.StringVar(&FlagsOptions.FileStoragePath, "f", "./metrics.dump", "Path to metrics dump file")
 	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")
 	flag.StringVar(&FlagsOptions.DatabaseDSN, "d", "", "Database DSN")
+	flag.StringVar(&FlagsOptions.HashKey, "k", "", "Hash key")
 
 	flag.Parse()
+
 	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 		err := netAddr.Set(envRunAddr)
 		if err != nil {
@@ -199,6 +211,10 @@ func parseFlags() error {
 
 	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
 		FlagsOptions.DatabaseDSN = envDatabaseDSN
+	}
+
+	if envHashKey := os.Getenv("KEY"); envHashKey != "" {
+		FlagsOptions.HashKey = envHashKey
 	}
 	return nil
 }
