@@ -3,6 +3,10 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -84,20 +88,21 @@ func main() {
 	}
 	logger.Log.Info("parse flags success")
 
-	ch := make(chan struct{})
-	mc.UpdateValues(CliOpt.PollInterval, ch)
+	ctx, cancel := context.WithCancel(context.Background())
+	mc.UpdateValues(ctx, CliOpt.PollInterval)
+	defer cancel()
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		err = retriableHTTPSend(SendMetricsJSON, mc)
-		if err != nil {
-			close(ch)
-			time.Sleep(2 * time.Second)
-			log.Fatal(err)
-		}
+		//err = retriableHTTPSend(SendMetricsJSON, mc)
+		//if err != nil {
+		//	close(ch)
+		//	time.Sleep(2 * time.Second)
+		//	log.Fatal(err)
+		//}
 		err = retriableHTTPSend(SendBatchJSON, mc)
 		if err != nil {
-			close(ch)
+			cancel()
 			time.Sleep(2 * time.Second)
 			log.Fatal(err)
 		}
@@ -244,6 +249,7 @@ func SendBatchJSON(mc storage.Collection) error {
 		}
 		allMetrics = append(allMetrics, mt)
 	}
+
 	for name, value := range gMetrics {
 		mt := models.Metrics{
 			ID:    name,
@@ -264,12 +270,33 @@ func SendBatchJSON(mc storage.Collection) error {
 		return fmt.Errorf("failed to compress request body: %w", err)
 	}
 
-	resp, err := client.R().
-		SetHeader("Content-Type", "application/json").
-		SetHeader("Content-Encoding", "gzip").
-		SetHeader("Accept-Encoding", "gzip").
-		SetBody(cBody).
-		Post(url)
+	var resp *resty.Response
+
+	if CliOpt.HashKey != "" {
+		logger.Log.Info("Creating HMAC")
+		h := hmac.New(sha256.New, []byte(CliOpt.HashKey))
+		h.Write(cBody)
+		s := h.Sum(nil)
+		logger.Log.Info("HASH", zap.String("HASH", base64.URLEncoding.EncodeToString(s)))
+		logger.Log.Info("Writing HMAC")
+		logger.Log.Info("Sending batch with HMAC")
+		resp, err = client.R().
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Accept-Encoding", "gzip").
+			SetHeader("HashSHA256", base64.URLEncoding.EncodeToString(s)).
+			SetBody(cBody).
+			Post(url)
+	} else {
+		logger.Log.Info("Sending batch")
+		resp, err = client.R().
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
+			SetHeader("Accept-Encoding", "gzip").
+			SetBody(cBody).
+			Post(url)
+	}
+
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
 	}

@@ -18,7 +18,7 @@ var (
 )
 
 var (
-	version  = "0.1.13"
+	version  = "0.1.14"
 	progName = "Fuonder's ya-practicum client"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -62,13 +62,15 @@ type CliOptions struct {
 	NetAddr        NetAddress
 	ReportInterval time.Duration
 	PollInterval   time.Duration
+	HashKey        string
 }
 
 func (o *CliOptions) String() string {
-	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s",
+	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s, hashKey:%s",
 		o.NetAddr.String(),
 		o.ReportInterval,
-		o.PollInterval)
+		o.PollInterval,
+		o.HashKey)
 }
 
 var (
@@ -78,6 +80,7 @@ var (
 			Port:   8080},
 		ReportInterval: 10 * time.Second,
 		PollInterval:   2 * time.Second,
+		HashKey:        "",
 	}
 	netAddr = &NetAddress{
 		IPAddr: "localhost",
@@ -110,6 +113,7 @@ func parseFlags() error {
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
 	flag.Int64Var(&pInterval, "p", 2, "interval of collecting metrics in secs")
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
+	flag.StringVar(&CliOpt.HashKey, "k", "", "key for hash")
 
 	flag.Parse()
 	var err error
@@ -155,6 +159,10 @@ func parseFlags() error {
 			return fmt.Errorf("flag -p: %w", err)
 		}
 		CliOpt.PollInterval = time.Duration(pInterval) * time.Second
+	}
+
+	if envHashKey := os.Getenv("KEY"); envHashKey != "" {
+		CliOpt.HashKey = envHashKey
 	}
 	return nil
 }

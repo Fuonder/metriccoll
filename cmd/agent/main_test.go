@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	model "github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/stretchr/testify/assert"
@@ -37,10 +38,12 @@ func TestMetrics_updateValues(t *testing.T) {
 			collection, err := storage.NewMetricsCollection()
 			require.NoError(t, err)
 			require.NotNil(t, collection)
-			ch := make(chan struct{})
-			collection.UpdateValues(CliOpt.PollInterval, ch)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			collection.UpdateValues(ctx, CliOpt.PollInterval)
 			time.Sleep(CliOpt.ReportInterval)
-			close(ch)
+			cancel()
+
 			result, err := collection.GetPollCount()
 			require.NoError(t, err)
 			if !test.want.wantErr {

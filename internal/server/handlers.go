@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,8 @@ var (
 	ErrMetricFileHandlerNotInitialized = ErrorResponse{Code: http.StatusInternalServerError, Message: "metricFileHandler object not initialized"}
 	ErrMetricDBHandlerNotInitialized   = ErrorResponse{Code: http.StatusInternalServerError, Message: "metricDatabaseHandler object not initialized"}
 	ErrInvalidMetricValue              = errors.New("invalid metric value")
+	ErrNoHashKey                       = errors.New("no hash key")
+	ErrMismatchedHash                  = errors.New("mismatched hash")
 )
 
 var validContentTypes = map[string]struct{}{
@@ -46,17 +49,20 @@ type Handler struct {
 	mWriter      storage.MetricWriter
 	mFileHandler storage.MetricFileHandler
 	mDBHandler   storage.MetricDatabaseHandler
+	hashKey      string
 }
 
 func NewHandler(mReader storage.MetricReader,
 	mWriter storage.MetricWriter,
 	mFileHandler storage.MetricFileHandler,
-	mDBHandler storage.MetricDatabaseHandler) *Handler {
+	mDBHandler storage.MetricDatabaseHandler,
+	hashKey string) *Handler {
 	h := Handler{
 		mReader:      mReader,
 		mWriter:      mWriter,
 		mFileHandler: mFileHandler,
 		mDBHandler:   mDBHandler,
+		hashKey:      hashKey,
 	}
 	return &h
 }
@@ -480,5 +486,47 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 		}
 		h.ServeHTTP(ow, r)
 
+	}
+}
+
+func (h *Handler) HashMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if h.hashKey == "" {
+			next.ServeHTTP(rw, r)
+			return
+		}
+		logger.Log.Info("Validating HMAC")
+		if HMACPresent := r.Header.Get("HashSHA256"); HMACPresent != "" {
+			var bodyCopy bytes.Buffer
+			teeReader := io.TeeReader(r.Body, &bodyCopy)
+			body, err := io.ReadAll(teeReader)
+			if err != nil {
+				http.Error(rw, "Error reading request body", http.StatusInternalServerError)
+				return
+			}
+			err = validateHMAC(HMACPresent, body, h.hashKey)
+			if err != nil {
+				http.Error(rw, ErrMismatchedHash.Error(), http.StatusBadRequest)
+				return
+			}
+			logger.Log.Info("Validation", zap.String("HMAC", "CORRECT"))
+			r.Body = io.NopCloser(&bodyCopy)
+		} else {
+			logger.Log.Info("Validation", zap.String("HMAC", "No HMAC in request found, skipping validation"))
+		}
+		next.ServeHTTP(rw, r)
+	})
+}
+
+//func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
+//	return func(rw http.ResponseWriter, r *http.Request) {
+
+func (h *Handler) WithHashing(handler http.Handler) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		hw := rw
+		if h.hashKey != "" {
+			hw = newHashWriter(rw, h.hashKey)
+		}
+		handler.ServeHTTP(hw, r)
 	}
 }
