@@ -22,6 +22,30 @@ var (
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
 
+type senderFunc func(storage.Collection) error
+
+func retriableHTTPSend(sender senderFunc, st storage.Collection) error {
+	var err error
+	timeouts := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+	maxRetries := 3
+
+	for i := 0; i < maxRetries; i++ {
+		logger.Log.Info("sending metrics")
+		err = sender(st)
+		if err == nil {
+			return nil
+		}
+		if i < len(timeouts) {
+			logger.Log.Info("sending metrics failed", zap.Error(err))
+			logger.Log.Info("retrying after timeout",
+				zap.Duration("timeout", timeouts[i]),
+				zap.Int("retry-count", i+1))
+			time.Sleep(timeouts[i])
+		}
+	}
+	return err
+}
+
 func checkServerConnection(url string) error {
 	// Устанавливаем таймаут для запроса
 	client := http.Client{
@@ -53,7 +77,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	//fmt.Println("metric collection creation success")
 
 	err = parseFlags()
 	if err != nil {
@@ -61,28 +84,24 @@ func main() {
 	}
 	logger.Log.Info("parse flags success")
 
-	//err = checkServerConnection("http://" + CliOpt.NetAddr.String() + "/")
-	//if err != nil {
-	//	fmt.Println("Connection check failed:", err)
-	//} else {
-	//	fmt.Println("Server is reachable!")
-	//}
-
 	ch := make(chan struct{})
 	mc.UpdateValues(CliOpt.PollInterval, ch)
 
 	for {
 		time.Sleep(CliOpt.ReportInterval)
-		logger.Log.Info("sending metrics")
-		err = SendMetricsJSON(mc)
+		err = retriableHTTPSend(SendMetricsJSON, mc)
 		if err != nil {
-			if !errors.Is(err, ErrCouldNotSendRequest) {
-				close(ch)
-				time.Sleep(2 * time.Second)
-				log.Fatal(err)
-			}
-			logger.Log.Info("sending metrics failed", zap.Error(err))
+			close(ch)
+			time.Sleep(2 * time.Second)
+			log.Fatal(err)
 		}
+		err = retriableHTTPSend(SendBatchJSON, mc)
+		if err != nil {
+			close(ch)
+			time.Sleep(2 * time.Second)
+			log.Fatal(err)
+		}
+
 		//err = testAll()
 		//if err != nil {
 		//	close(ch)
@@ -204,6 +223,59 @@ func SendMetricsJSON(mc storage.Collection) error {
 				zap.String("resp body", string(resp.Body())))
 			return ErrWrongResponseStatus
 		}
+	}
+	return nil
+}
+
+func SendBatchJSON(mc storage.Collection) error {
+	client := resty.New()
+	gMetrics := mc.GetGaugeList()
+	cMetrics := mc.GetCounterList()
+	var allMetrics []models.Metrics
+
+	url := "http://" + CliOpt.NetAddr.String() + "/updates/"
+
+	for name, value := range cMetrics {
+		mt := models.Metrics{
+			ID:    name,
+			MType: "counter",
+			Delta: (*int64)(&value),
+			Value: nil,
+		}
+		allMetrics = append(allMetrics, mt)
+	}
+	for name, value := range gMetrics {
+		mt := models.Metrics{
+			ID:    name,
+			MType: "gauge",
+			Delta: nil,
+			Value: (*float64)(&value),
+		}
+		allMetrics = append(allMetrics, mt)
+	}
+
+	body, err := json.Marshal(allMetrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	cBody, err := gzipCompress(body)
+	if err != nil {
+		return fmt.Errorf("failed to compress request body: %w", err)
+	}
+
+	resp, err := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Accept-Encoding", "gzip").
+		SetBody(cBody).
+		Post(url)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
+	}
+	if resp.StatusCode() != 200 {
+		logger.Log.Info("", zap.Any("Body", string(resp.Body())))
+		return ErrWrongResponseStatus
 	}
 	return nil
 }

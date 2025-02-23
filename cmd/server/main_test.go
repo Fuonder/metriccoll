@@ -143,8 +143,12 @@ func TestMetricRouter(t *testing.T) {
 			wantResp:    "metric with such key is not found: negative\n",
 		},
 	}
-	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
-	h := server.NewHandler(ms)
+	settings := storage.NewFileStoreInfo("./metrics.dump", 300*time.Second, false)
+	ms, err := storage.NewJSONStorage(settings)
+	require.NoError(t, err)
+	//dbSettings := "postgres://videos:12345678@localhost:5432/videos?sslmode=disable"
+	//dbStorage, _ := storage.NewDatabase(dbSettings)
+	h := server.NewHandler(ms, ms, ms, nil)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
 	defer ts.Close()
@@ -242,12 +246,20 @@ func TestJSONHandling(t *testing.T) {
 			},
 		},
 	}
-	ms, err := storage.NewJSONStorage(false, "./metrics.dump", 300*time.Second)
-	h := server.NewHandler(ms)
-	require.NoError(t, err)
+
+	settings := storage.NewFileStoreInfo("./metrics.dump", 300*time.Second, false)
+	ms, _ := storage.NewJSONStorage(settings)
+	//dbSettings := storage.NewDatabaseSettings(FlagsOptions.DatabaseDSN,
+	//	"videos",
+	//	"12345678",
+	//	"videos",
+	//	"disable")
+	//dbSettings := "postgres://videos:12345678@localhost:5432/videos?sslmode=disable"
+	//dbStorage, _ := storage.NewDatabase(dbSettings)
+	h := server.NewHandler(ms, ms, ms, nil)
 	gaugeInitValue := 1.0
 	counterInitValue := int64(1)
-	err = ms.AppendMetric(models.Metrics{
+	err := ms.AppendMetric(models.Metrics{
 		ID:    "gMetric",
 		MType: "gauge",
 		Value: &gaugeInitValue,

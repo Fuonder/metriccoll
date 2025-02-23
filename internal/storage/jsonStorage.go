@@ -12,40 +12,49 @@ import (
 	"time"
 )
 
-type StoreMode struct {
+type FileStoreInfo struct {
 	Sync          bool
 	StoreInterval time.Duration
+	fLoadFromFile bool
+	fPath         string
+}
+
+func NewFileStoreInfo(fPath string, interval time.Duration, fLoadFromFile bool) *FileStoreInfo {
+	syncMode := false
+	if interval == 0 {
+		syncMode = true
+	}
+
+	return &FileStoreInfo{
+		Sync:          syncMode,
+		StoreInterval: interval,
+		fLoadFromFile: fLoadFromFile,
+		fPath:         fPath,
+	}
 }
 
 type JSONStorage struct {
-	metrics      []models.Metrics
-	fStore       bool
-	fStoragePath string
-	Mode         StoreMode
-	mu           sync.RWMutex
-	fileMu       sync.RWMutex
+	metrics  []models.Metrics
+	fileInfo *FileStoreInfo
+	mu       sync.RWMutex
+	fileMu   sync.RWMutex
 }
 
-//func NewJSONStorage(loadFromFile bool, filePath string, interval time.Duration) (*JSONStorage, error) {
+func NewJSONStorage(fileStoreInfo *FileStoreInfo) (*JSONStorage, error) {
 
-func NewJSONStorage(loadFromFile bool, filePath string, interval time.Duration) (*JSONStorage, error) {
+	st := JSONStorage{metrics: make([]models.Metrics, 0), fileInfo: fileStoreInfo}
 
-	st := JSONStorage{metrics: make([]models.Metrics, 0)}
-	st.fStoragePath = filePath
-	st.fStore = loadFromFile
-	if st.fStore {
+	if st.fileInfo.fLoadFromFile {
 		err := st.loadMetricsFromFile()
 		if err != nil {
 			return nil, err
 		}
 	}
-	if interval == 0 {
-		st.Mode.Sync = true
-	} else {
-		st.Mode.Sync = false
-		st.Mode.StoreInterval = interval
-	}
 	return &st, nil
+}
+
+func (st *JSONStorage) IsSyncFileMode() bool {
+	return st.fileInfo.Sync
 }
 
 func (st *JSONStorage) DumpMetrics() error {
@@ -55,37 +64,27 @@ func (st *JSONStorage) DumpMetrics() error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(st.fStoragePath, data, OsAllRw)
+	err = os.WriteFile(st.fileInfo.fPath, data, OsAllRw)
 	if err != nil {
 		return err
 	}
-	//for _, m := range st.metrics {
-	//	data, err := json.MarshalIndent(m, "", "    ")
-	//	if err != nil {
-	//		return err
-	//	}
-	//	err = os.WriteFile(st.fStoragePath, data, 0666)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
 	return nil
 }
 
 func (st *JSONStorage) loadMetricsFromFile() error {
-	statTest, err := os.Stat(st.fStoragePath)
+	statTest, err := os.Stat(st.fileInfo.fPath)
 	if os.IsNotExist(err) {
 		logger.Log.Info("can not find metrcis file",
-			zap.String("Expected file", st.fStoragePath),
+			zap.String("Expected file", st.fileInfo.fPath),
 			zap.Error(err))
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("can not find metrcis file \"%s\": %w", st.fStoragePath, err)
+		return fmt.Errorf("can not find metrcis file \"%s\": %w", st.fileInfo.fPath, err)
 	}
 	if statTest.Size() == 0 {
 		return nil
 	}
-	file, err := os.OpenFile(st.fStoragePath, os.O_CREATE|os.O_RDWR, 0644)
+	file, err := os.OpenFile(st.fileInfo.fPath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
@@ -101,22 +100,6 @@ func (st *JSONStorage) loadMetricsFromFile() error {
 		return fmt.Errorf("not valid json data in file: %w", err)
 	}
 	st.metrics = items
-
-	//decoder := json.NewDecoder(file)
-
-	//for {
-	//	var m models.Metrics
-	//	if err := decoder.Decode(&m); err != nil {
-	//		if err == io.EOF {
-	//			break
-	//		}
-	//		return fmt.Errorf("can not decode metrcis file \"%s\": %w", st.fStoragePath, err)
-	//	}
-	//	err = st.AppendMetric(m)
-	//	if err != nil {
-	//		return fmt.Errorf("can not load metric %s from \"%s\": %w", m.ID, st.fStoragePath, err)
-	//	}
-	//}
 	return nil
 }
 
@@ -130,7 +113,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 					return ErrInvalidMetricValue
 				}
 				*st.metrics[i].Value = *metric.Value
-				if st.Mode.Sync {
+				if st.fileInfo.Sync {
 					err := st.DumpMetrics()
 					if err != nil {
 						return err
@@ -142,7 +125,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 					return ErrInvalidMetricValue
 				}
 				*st.metrics[i].Delta += *metric.Delta
-				if st.Mode.Sync {
+				if st.fileInfo.Sync {
 					err := st.DumpMetrics()
 					if err != nil {
 						return err
@@ -159,7 +142,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
-		if st.Mode.Sync {
+		if st.fileInfo.Sync {
 			err := st.DumpMetrics()
 			if err != nil {
 				return err
@@ -171,7 +154,7 @@ func (st *JSONStorage) AppendMetric(metric models.Metrics) error {
 			return ErrInvalidMetricValue
 		}
 		st.metrics = append(st.metrics, metric)
-		if st.Mode.Sync {
+		if st.fileInfo.Sync {
 			err := st.DumpMetrics()
 			if err != nil {
 				return err
@@ -194,4 +177,14 @@ func (st *JSONStorage) GetMetricByName(name string, mType string) (models.Metric
 
 func (st *JSONStorage) GetAllMetrics() []models.Metrics {
 	return st.metrics
+}
+
+func (st *JSONStorage) AppendMetrics(metrics []models.Metrics) error {
+	for _, metric := range metrics {
+		err := st.AppendMetric(metric)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

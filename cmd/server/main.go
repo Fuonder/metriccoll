@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/server"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
+	"github.com/Fuonder/metriccoll.git/internal/storage/database"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"log"
@@ -29,23 +31,56 @@ func main() {
 	}
 }
 
-func run() error {
-
-	ms, err := storage.NewJSONStorage(FlagsOptions.Restore, FlagsOptions.FileStoragePath, FlagsOptions.StoreInterval)
+func createJSONStorage() (*storage.JSONStorage, error) {
+	settings := storage.NewFileStoreInfo(FlagsOptions.FileStoragePath, FlagsOptions.StoreInterval, FlagsOptions.Restore)
+	ms, err := storage.NewJSONStorage(settings)
 	if err != nil {
-		return err
+		return &storage.JSONStorage{}, err
 	}
 
-	if !ms.Mode.Sync {
+	if !ms.IsSyncFileMode() {
 		go func() {
 			for {
-				time.Sleep(ms.Mode.StoreInterval)
+				time.Sleep(FlagsOptions.StoreInterval)
 				_ = ms.DumpMetrics()
 			}
 		}()
 	}
+	return ms, nil
+}
 
-	handler := server.NewHandler(ms)
+func run() error {
+
+	var handler *server.Handler
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dbSettings := FlagsOptions.DatabaseDSN
+
+	dbConnection, err := database.NewPSQLConnection(ctx, dbSettings)
+	if err != nil {
+		logger.Log.Warn("Cannot connect to db")
+		logger.Log.Info("Switching to file(json) storage")
+		jsonStorage, err := createJSONStorage()
+		if err != nil {
+			return err
+		}
+		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil)
+	} else {
+		logger.Log.Info("Connected to db")
+		err := dbConnection.CreateTablesContext(ctx)
+		if err != nil {
+			return err
+		}
+
+		dbStorage, err := database.NewDBStorage(ctx, dbConnection)
+		if err != nil {
+			return err
+		}
+		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage)
+		defer dbStorage.Close()
+	}
 
 	logger.Log.Info("Listening at",
 		zap.String("Addr", netAddr.String()))
@@ -59,6 +94,12 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
 	router.Get("/", logger.HanlderWithLogger(server.GzipMiddleware(h.RootHandler)))
+	router.Route("/ping", func(router chi.Router) {
+		router.Get("/", logger.HanlderWithLogger(server.GzipMiddleware(h.DBPingHandler)))
+	})
+	router.Route("/updates", func(router chi.Router) {
+		router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.MultipleUpdateHandler)))
+	})
 	router.Route("/update", func(router chi.Router) {
 		router.Post("/", logger.HanlderWithLogger(server.GzipMiddleware(h.JSONUpdateHandler)))
 		router.Route("/{mType}", func(router chi.Router) {

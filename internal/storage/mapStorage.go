@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// Deprecated: Memory storage does not supported from 0.1.9 version
 type memStorage struct {
 	gMetric map[string]models.Gauge
 	cMetric map[string]models.Counter
@@ -18,6 +19,15 @@ func NewMemStorage() (*memStorage, error) {
 		cMetric: make(map[string]models.Counter),
 	}
 	return &ms, nil
+}
+func (ms *memStorage) AppendMetrics(metrics []models.Metrics) error {
+	for _, metric := range metrics {
+		err := ms.AppendMetric(metric)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ms *memStorage) AppendMetric(metric models.Metrics) error {
