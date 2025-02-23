@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -244,6 +247,7 @@ func SendBatchJSON(mc storage.Collection) error {
 		}
 		allMetrics = append(allMetrics, mt)
 	}
+
 	for name, value := range gMetrics {
 		mt := models.Metrics{
 			ID:    name,
@@ -264,6 +268,13 @@ func SendBatchJSON(mc storage.Collection) error {
 		return fmt.Errorf("failed to compress request body: %w", err)
 	}
 
+	if CliOpt.HashKey != "" {
+		h := hmac.New(sha256.New, []byte(CliOpt.HashKey))
+		h.Write(cBody)
+		s := h.Sum(nil)
+		client.R().SetHeader("HashSHA256", base64.URLEncoding.EncodeToString(s))
+	}
+	
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
