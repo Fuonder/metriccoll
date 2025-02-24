@@ -18,7 +18,7 @@ var (
 )
 
 var (
-	version  = "0.1.14"
+	version  = "0.1.15"
 	progName = "Fuonder's ya-practicum client"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -63,14 +63,16 @@ type CliOptions struct {
 	ReportInterval time.Duration
 	PollInterval   time.Duration
 	HashKey        string
+	RateLimit      int64
 }
 
 func (o *CliOptions) String() string {
-	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s, hashKey:%s",
+	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s, hashKey:%s, rateLimit: %d",
 		o.NetAddr.String(),
 		o.ReportInterval,
 		o.PollInterval,
-		o.HashKey)
+		o.HashKey,
+		o.RateLimit)
 }
 
 var (
@@ -81,6 +83,7 @@ var (
 		ReportInterval: 10 * time.Second,
 		PollInterval:   2 * time.Second,
 		HashKey:        "",
+		RateLimit:      1,
 	}
 	netAddr = &NetAddress{
 		IPAddr: "localhost",
@@ -114,6 +117,7 @@ func parseFlags() error {
 	flag.Int64Var(&pInterval, "p", 2, "interval of collecting metrics in secs")
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
 	flag.StringVar(&CliOpt.HashKey, "k", "", "key for hash")
+	flag.Int64Var(&CliOpt.RateLimit, "l", 1, "rate limit")
 
 	flag.Parse()
 	var err error
@@ -164,5 +168,22 @@ func parseFlags() error {
 	if envHashKey := os.Getenv("KEY"); envHashKey != "" {
 		CliOpt.HashKey = envHashKey
 	}
+
+	if envRateLimit := os.Getenv("RATE_LIMIT"); envRateLimit != "" {
+		err = validateIntervalString(envRateLimit)
+		if err != nil {
+			return fmt.Errorf("RATE_LIMIT: %w", err)
+		}
+		CliOpt.RateLimit, err = strconv.ParseInt(envRateLimit, 10, 64)
+		if err != nil {
+			return fmt.Errorf("RATE_LIMIT: %w", err)
+		}
+	} else {
+		err = validateIntervalInt64(CliOpt.RateLimit)
+		if err != nil {
+			return fmt.Errorf("flag -l: %w", err)
+		}
+	}
+
 	return nil
 }

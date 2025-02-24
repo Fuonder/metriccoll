@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	version  = "0.1.14"
+	version  = "0.1.15"
 	progName = "Fuonder's ya-practicum server"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
