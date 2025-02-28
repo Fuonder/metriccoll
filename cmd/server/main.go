@@ -25,7 +25,7 @@ func main() {
 	logger.Log.Debug("Flags parsed",
 		zap.String("flags", FlagsOptions.String()))
 
-	logger.Log.Info("Starting metric collector")
+	logger.Log.Info("Starting metric MemoryCollector")
 	if err = run(); err != nil {
 		logger.Log.Fatal("", zap.Error(err))
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	model "github.com/Fuonder/metriccoll.git/internal/models"
-	"github.com/Fuonder/metriccoll.git/internal/storage"
+	"github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -35,7 +35,7 @@ func TestMetrics_updateValues(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			collection, err := storage.NewMetricsCollection()
+			collection, err := agentCollection.NewMetricsCollection()
 			require.NoError(t, err)
 			require.NotNil(t, collection)
 			ctx, cancel := context.WithCancel(context.Background())

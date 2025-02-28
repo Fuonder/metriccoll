@@ -1,9 +1,10 @@
-package storage
+package agentCollection
 
 import (
 	"context"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	model "github.com/Fuonder/metriccoll.git/internal/models"
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"math/rand/v2"
 	"runtime"
 	"sync"
@@ -96,6 +97,6 @@ func (mc *MetricsCollection) GetPollCount() (model.Counter, error) {
 	if _, ok := mc.cMetrics["PollCount"]; ok {
 		return mc.cMetrics["PollCount"], nil
 	}
-	return 0, ErrFieldNotFound
+	return 0, storage.ErrFieldNotFound
 
 }
