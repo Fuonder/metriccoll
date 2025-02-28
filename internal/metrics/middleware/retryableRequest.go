@@ -9,7 +9,7 @@ import (
 
 type workerSendFunc func([]byte, string) error
 
-func RetryableWorkerHTTPSend(sender workerSendFunc, remoteUrl string, data []byte, retriesCount int) error {
+func RetryableWorkerHTTPSend(sender workerSendFunc, remoteURL string, data []byte, retriesCount int) error {
 	var err error
 	timeouts := make([]time.Duration, retriesCount)
 	for i := 0; i < retriesCount; i++ {
@@ -19,7 +19,7 @@ func RetryableWorkerHTTPSend(sender workerSendFunc, remoteUrl string, data []byt
 
 	for i := 0; i < retriesCount; i++ {
 		logger.Log.Info("sending metrics")
-		err = sender(data, remoteUrl)
+		err = sender(data, remoteURL)
 		if err == nil {
 			return nil
 		}
