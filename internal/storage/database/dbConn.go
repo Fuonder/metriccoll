@@ -182,39 +182,39 @@ func (c *PSQLConnection) AppendCounterMetric(ctx context.Context, metric models.
 
 func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, error) {
 	var metrics []models.Metrics
-	queryGauge := `SELECT id, type, delta FROM counter_metrics`
-	queryCounter := `SELECT id, type, value FROM gauge_metrics`
+	queryCounter := `SELECT id, type, delta FROM counter_metrics`
+	queryGauge := `SELECT id, type, value FROM gauge_metrics`
 
 	rowsCounter, err := c.db.QueryContext(ctx, queryCounter)
 	if err != nil {
-		return []models.Metrics{}, err
+		return []models.Metrics{}, fmt.Errorf("can not query counter metrics: %w", err)
 	}
 	defer rowsCounter.Close()
 	for rowsCounter.Next() {
 		var m models.Metrics
 		if err := rowsCounter.Scan(&m.ID, &m.MType, &m.Delta); err != nil {
-			return []models.Metrics{}, err
+			return []models.Metrics{}, fmt.Errorf("can not scan counter metrics: %w", err)
 		}
 		metrics = append(metrics, m)
 	}
 	if err := rowsCounter.Err(); err != nil {
-		return []models.Metrics{}, err
+		return []models.Metrics{}, fmt.Errorf("counter metrics has errors: %w", err)
 	}
 
 	rowsGauge, err := c.db.QueryContext(ctx, queryGauge)
 	if err != nil {
-		return []models.Metrics{}, err
+		return []models.Metrics{}, fmt.Errorf("can not query gauge metrics: %w", err)
 	}
 	defer rowsGauge.Close()
 	for rowsGauge.Next() {
 		var m models.Metrics
 		if err := rowsGauge.Scan(&m.ID, &m.MType, &m.Value); err != nil {
-			return []models.Metrics{}, err
+			return []models.Metrics{}, fmt.Errorf("can not scan gauge metrics: %w", err)
 		}
 		metrics = append(metrics, m)
 	}
 	if err := rowsGauge.Err(); err != nil {
-		return []models.Metrics{}, err
+		return []models.Metrics{}, fmt.Errorf("gauge metrics has errors: %w", err)
 	}
 	return metrics, nil
 }

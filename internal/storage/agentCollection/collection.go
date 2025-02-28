@@ -1,30 +1,34 @@
-package storage
+package agentcollection
 
 import (
+	"context"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	model "github.com/Fuonder/metriccoll.git/internal/models"
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"math/rand/v2"
 	"runtime"
+	"sync"
 	"time"
 )
 
 type MetricsCollection struct {
 	gMetrics map[string]model.Gauge
 	cMetrics map[string]model.Counter
-	//mu       sync.Mutex
+	mu       sync.Mutex
 }
 
 func NewMetricsCollection() (*MetricsCollection, error) {
 	mc := MetricsCollection{
 		gMetrics: make(map[string]model.Gauge),
 		cMetrics: map[string]model.Counter{"PollCount": 0},
+		mu:       sync.Mutex{},
 	}
 	return &mc, nil
 }
 
 func (mc *MetricsCollection) ReadValues() {
-	// mc.mu.Lock()
-	// defer mc.mu.Unlock()
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
 
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
@@ -63,11 +67,11 @@ func (mc *MetricsCollection) ReadValues() {
 	// log.Printf("PollCount:\t%d\n", mc.cMetrics["PollCount"])
 }
 
-func (mc *MetricsCollection) UpdateValues(interval time.Duration, stopChan chan struct{}) {
+func (mc *MetricsCollection) UpdateValues(ctx context.Context, interval time.Duration) {
 	go func() {
 		for {
 			select {
-			case <-stopChan:
+			case <-ctx.Done():
 				logger.Log.Debug("Stopping metrics collection")
 				return
 			default:
@@ -88,11 +92,11 @@ func (mc *MetricsCollection) GetGaugeList() map[string]model.Gauge {
 }
 
 func (mc *MetricsCollection) GetPollCount() (model.Counter, error) {
-	//mc.mu.Lock()
-	//defer mc.mu.Unlock()
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
 	if _, ok := mc.cMetrics["PollCount"]; ok {
 		return mc.cMetrics["PollCount"], nil
 	}
-	return 0, ErrFieldNotFound
+	return 0, storage.ErrFieldNotFound
 
 }
