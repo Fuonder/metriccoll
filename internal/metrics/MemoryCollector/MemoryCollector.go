@@ -1,4 +1,4 @@
-package MemoryCollector
+package memcollector
 
 import (
 	"context"
@@ -141,17 +141,14 @@ func (c *MemoryCollector) collectNewMetrics(ctx context.Context) ([]byte, error)
 			return []byte{}, err
 		}
 
-		for _, item := range mCPUUtilization {
-			allMetrics = append(allMetrics, item)
-		}
+		allMetrics = append(allMetrics, mCPUUtilization...)
 
 		mMemory, err := getMemoryInfo()
 		if err != nil {
 			return []byte{}, err
 		}
-		for _, item := range mMemory {
-			allMetrics = append(allMetrics, item)
-		}
+
+		allMetrics = append(allMetrics, mMemory...)
 
 		body, err := json.Marshal(allMetrics)
 
@@ -260,9 +257,9 @@ func (c *MemoryCollector) RunWorkers(rateLimit time.Duration) error {
 	return nil
 }
 
-func (c *MemoryCollector) Post(packetBody []byte, remoteUrl string) error {
-	if remoteUrl == "" {
-		remoteUrl = "http://" + c.remoteIP + "/updates/"
+func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
+	if remoteURL == "" {
+		remoteURL = "http://" + c.remoteIP + "/updates/"
 	}
 
 	client := resty.New()
@@ -288,7 +285,7 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteUrl string) error {
 			SetHeader("Accept-Encoding", "gzip").
 			SetHeader("HashSHA256", base64.URLEncoding.EncodeToString(s)).
 			SetBody(cBody).
-			Post(remoteUrl)
+			Post(remoteURL)
 	} else {
 		logger.Log.Info("Sending batch")
 		resp, err = client.R().
@@ -296,7 +293,7 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteUrl string) error {
 			SetHeader("Content-Encoding", "gzip").
 			SetHeader("Accept-Encoding", "gzip").
 			SetBody(cBody).
-			Post(remoteUrl)
+			Post(remoteURL)
 	}
 
 	if err != nil {

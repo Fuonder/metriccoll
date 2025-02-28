@@ -42,8 +42,8 @@ func main() {
 	jobsCh := make(chan []byte, 10)
 	defer close(jobsCh)
 
-	timeIntervals := MemoryCollector.NewTimeIntervals(CliOpt.ReportInterval, CliOpt.PollInterval)
-	collector := MemoryCollector.NewMemoryCollector(mc, timeIntervals, jobsCh)
+	timeIntervals := memcollector.NewTimeIntervals(CliOpt.ReportInterval, CliOpt.PollInterval)
+	collector := memcollector.NewMemoryCollector(mc, timeIntervals, jobsCh)
 
 	err = collector.SetRemoteIP(CliOpt.NetAddr.String())
 	if err != nil {
