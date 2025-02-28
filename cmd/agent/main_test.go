@@ -35,7 +35,7 @@ func TestMetrics_updateValues(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			collection, err := agentCollection.NewMetricsCollection()
+			collection, err := agentcollection.NewMetricsCollection()
 			require.NoError(t, err)
 			require.NotNil(t, collection)
 			ctx, cancel := context.WithCancel(context.Background())

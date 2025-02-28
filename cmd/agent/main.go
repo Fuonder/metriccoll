@@ -23,7 +23,7 @@ func main() {
 
 	logger.Log.Info("Starting agent")
 
-	mc, err := agentCollection.NewMetricsCollection()
+	mc, err := agentcollection.NewMetricsCollection()
 	if err != nil {
 		log.Fatal(err)
 	}

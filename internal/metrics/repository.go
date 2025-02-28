@@ -14,6 +14,6 @@ type Collector interface {
 }
 type Sender interface {
 	SetHashKey(key string) error
-	Post(packetBody []byte, remoteUrl string) error
+	Post(packetBody []byte, remoteURL string) error
 	CheckConnection() error
 }

@@ -1,4 +1,4 @@
-package agentCollection
+package agentcollection
 
 import (
 	"context"
