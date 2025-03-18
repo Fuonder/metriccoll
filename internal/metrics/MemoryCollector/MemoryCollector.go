@@ -236,11 +236,11 @@ func (c *MemoryCollector) Collect(ctx context.Context, cancel context.CancelFunc
 
 }
 
-func (c *MemoryCollector) RunWorkers(rateLimit time.Duration) error {
+func (c *MemoryCollector) RunWorkers(rateLimit int64) error {
 	var wg sync.WaitGroup
 	g := new(errgroup.Group)
 
-	for i := range int(rateLimit.Seconds()) {
+	for i := range int(rateLimit) {
 		wg.Add(1)
 		g.Go(func() error {
 			err := c.worker(i, c.jobsCh, &wg)

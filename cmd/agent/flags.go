@@ -63,7 +63,7 @@ type CliOptions struct {
 	ReportInterval time.Duration
 	PollInterval   time.Duration
 	HashKey        string
-	RateLimit      time.Duration
+	RateLimit      int64
 }
 
 func (o *CliOptions) String() string {
@@ -83,7 +83,7 @@ var (
 		ReportInterval: 10 * time.Second,
 		PollInterval:   2 * time.Second,
 		HashKey:        "",
-		RateLimit:      1 * time.Second,
+		RateLimit:      1,
 	}
 	netAddr = &NetAddress{
 		IPAddr: "localhost",
@@ -176,16 +176,16 @@ func parseFlags() error {
 			return fmt.Errorf("RATE_LIMIT: %w", err)
 		}
 
-		CliOpt.RateLimit, err = time.ParseDuration(envRateLimit + "s")
-		if err != nil {
-			return fmt.Errorf("RATE_LIMIT: %w", err)
-		}
+		//CliOpt.RateLimit, err = time.ParseDuration(envRateLimit + "s")
+		//if err != nil {
+		//	return fmt.Errorf("RATE_LIMIT: %w", err)
+		//}
 	} else {
 		err = validateIntervalInt64(rate)
 		if err != nil {
 			return fmt.Errorf("flag -l: %w", err)
 		}
-		CliOpt.RateLimit = time.Duration(rate) * time.Second
+		CliOpt.RateLimit = rate
 	}
 
 	return nil
