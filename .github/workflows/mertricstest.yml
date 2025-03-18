@@ -54,7 +54,7 @@ jobs:
 
       - name: Setup go deps
         run: |
-          go install golang.org/x/tools/cmd/goimports
+          go install golang.org/x/tools/cmd/goimports@v0.1.11
 
 
       - name: Build server binary
