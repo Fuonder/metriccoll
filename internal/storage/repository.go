@@ -34,7 +34,7 @@ type MetricDatabaseHandler interface {
 
 type Collection interface {
 	ReadValues()
-	UpdateValues(interval time.Duration, stopChan chan struct{})
+	UpdateValues(ctx context.Context, interval time.Duration)
 	GetCounterList() map[string]models.Counter
 	GetGaugeList() map[string]models.Gauge
 }

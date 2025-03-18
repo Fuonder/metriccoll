@@ -148,7 +148,7 @@ func TestMetricRouter(t *testing.T) {
 	require.NoError(t, err)
 	//dbSettings := "postgres://videos:12345678@localhost:5432/videos?sslmode=disable"
 	//dbStorage, _ := storage.NewDatabase(dbSettings)
-	h := server.NewHandler(ms, ms, ms, nil)
+	h := server.NewHandler(ms, ms, ms, nil, FlagsOptions.HashKey)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
 	defer ts.Close()
@@ -256,7 +256,7 @@ func TestJSONHandling(t *testing.T) {
 	//	"disable")
 	//dbSettings := "postgres://videos:12345678@localhost:5432/videos?sslmode=disable"
 	//dbStorage, _ := storage.NewDatabase(dbSettings)
-	h := server.NewHandler(ms, ms, ms, nil)
+	h := server.NewHandler(ms, ms, ms, nil, FlagsOptions.HashKey)
 	gaugeInitValue := 1.0
 	counterInitValue := int64(1)
 	err := ms.AppendMetric(models.Metrics{

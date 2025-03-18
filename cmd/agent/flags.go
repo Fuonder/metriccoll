@@ -18,7 +18,7 @@ var (
 )
 
 var (
-	version  = "0.1.13"
+	version  = "0.1.15"
 	progName = "Fuonder's ya-practicum client"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -62,13 +62,17 @@ type CliOptions struct {
 	NetAddr        NetAddress
 	ReportInterval time.Duration
 	PollInterval   time.Duration
+	HashKey        string
+	RateLimit      int64
 }
 
 func (o *CliOptions) String() string {
-	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s",
+	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s, hashKey:%s, rateLimit: %d",
 		o.NetAddr.String(),
 		o.ReportInterval,
-		o.PollInterval)
+		o.PollInterval,
+		o.HashKey,
+		o.RateLimit)
 }
 
 var (
@@ -78,6 +82,8 @@ var (
 			Port:   8080},
 		ReportInterval: 10 * time.Second,
 		PollInterval:   2 * time.Second,
+		HashKey:        "",
+		RateLimit:      1,
 	}
 	netAddr = &NetAddress{
 		IPAddr: "localhost",
@@ -85,6 +91,7 @@ var (
 	}
 	pInterval int64 = 2
 	rInterval int64 = 10
+	rate      int64 = 1
 )
 
 func validateIntervalString(interval string) error {
@@ -110,6 +117,8 @@ func parseFlags() error {
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
 	flag.Int64Var(&pInterval, "p", 2, "interval of collecting metrics in secs")
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
+	flag.StringVar(&CliOpt.HashKey, "k", "", "key for hash")
+	flag.Int64Var(&rate, "l", 1, "rate limit")
 
 	flag.Parse()
 	var err error
@@ -156,5 +165,28 @@ func parseFlags() error {
 		}
 		CliOpt.PollInterval = time.Duration(pInterval) * time.Second
 	}
+
+	if envHashKey := os.Getenv("KEY"); envHashKey != "" {
+		CliOpt.HashKey = envHashKey
+	}
+
+	if envRateLimit := os.Getenv("RATE_LIMIT"); envRateLimit != "" {
+		err = validateIntervalString(envRateLimit)
+		if err != nil {
+			return fmt.Errorf("RATE_LIMIT: %w", err)
+		}
+
+		//CliOpt.RateLimit, err = time.ParseDuration(envRateLimit + "s")
+		//if err != nil {
+		//	return fmt.Errorf("RATE_LIMIT: %w", err)
+		//}
+	} else {
+		err = validateIntervalInt64(rate)
+		if err != nil {
+			return fmt.Errorf("flag -l: %w", err)
+		}
+		CliOpt.RateLimit = rate
+	}
+
 	return nil
 }
