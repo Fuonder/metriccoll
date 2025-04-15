@@ -307,74 +307,64 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
+	defer r.Body.Close()
 
 	if h.mWriter == nil {
-		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
 		rw.WriteHeader(ErrMetricWriterNotInitialized.Code)
-		rw.Write(resp)
+		_ = json.NewEncoder(rw).Encode(ErrMetricWriterNotInitialized)
 		return
 	}
 	if h.mReader == nil {
-		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
 		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
-		rw.Write(resp)
+		_ = json.NewEncoder(rw).Encode(ErrMetricReaderNotInitialized)
 		return
 	}
 
-	if r.Header.Get("Content-Type") != "application/json" {
-		logger.Log.Info("Invalid content type",
-			zap.String("Content-Type", r.Header.Get("Content-Type")))
-		http.Error(rw, "Invalid content type", http.StatusBadRequest)
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/json" {
+		logger.Log.Info("Invalid content type", zap.String("Content-Type", contentType))
+		http.Error(rw, `{"error": "Invalid content type"}`, http.StatusBadRequest)
+		return
 	}
+
 	var metrics []models.Metrics
-	var updatedMetrics []models.Metrics
+
 	logger.Log.Info("DECODING BATCH")
+
 	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
 		logger.Log.Debug("json decode error", zap.Error(err))
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 	logger.Log.Info("APPENDING METRICS BATCH")
-	err := h.mWriter.AppendMetrics(metrics)
-	if err != nil {
+
+	if err := h.mWriter.AppendMetrics(metrics); err != nil {
 		logger.Log.Info("can not add metrics", zap.Error(err))
-		if errors.Is(err, ErrInvalidMetricValue) {
-			logger.Log.Info("one or more invalid metric value/values")
-			http.Error(rw, err.Error(), http.StatusBadRequest)
-			return
-		}
-		logger.Log.Info("other error then adding metrics")
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+		http.Error(rw, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusBadRequest)
 		return
 	}
+
+	updatedMetrics := make([]models.Metrics, 0, len(metrics))
+
 	logger.Log.Info("FORMING RESP METRICS BATCH")
 	for _, mt := range metrics {
 		mtRes, err := h.mReader.GetMetricByName(mt.ID, mt.MType)
 		if err != nil {
 			logger.Log.Info("can not get metric by name", zap.Error(err))
-			if errors.Is(err, ErrInvalidMetricValue) {
-				logger.Log.Info("invalid metric value")
-				http.Error(rw, err.Error(), http.StatusBadRequest)
-				return
-			}
-			logger.Log.Info("other error then getting metric")
-			http.Error(rw, err.Error(), http.StatusBadRequest)
+			http.Error(rw, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusBadRequest)
 			return
 		}
 		updatedMetrics = append(updatedMetrics, mtRes)
 	}
 	logger.Log.Info("MARSHALING FINAL METRICS BATCH")
-	resp, err := json.MarshalIndent(updatedMetrics, "", "    ")
+	resp, err := json.Marshal(updatedMetrics)
 	if err != nil {
 		logger.Log.Info("json marshal error", zap.Error(err))
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+		http.Error(rw, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
 		return
-	} else {
-		logger.Log.Info("Marshaling ok - sending respinse with status 200")
-		rw.WriteHeader(http.StatusOK)
-		rw.Write(resp)
 	}
+	rw.WriteHeader(http.StatusOK)
+	_, _ = rw.Write(resp)
 }
 
 func (h *Handler) CheckMethod(next http.Handler) http.Handler {
@@ -521,12 +511,35 @@ func (h *Handler) HashMiddleware(next http.Handler) http.Handler {
 //func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 //	return func(rw http.ResponseWriter, r *http.Request) {
 
-func (h *Handler) WithHashing(handler http.Handler) http.HandlerFunc {
+func (h *Handler) WithHashing(next http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		hw := rw
 		if h.hashKey != "" {
 			hw = newHashWriter(rw, h.hashKey)
 		}
-		handler.ServeHTTP(hw, r)
+		next.ServeHTTP(hw, r)
 	}
 }
+
+//func (h *Handler) DecompressRequestMiddleware(next http.Handler) http.Handler {
+//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+//		if strings.EqualFold(r.Header.Get("Content-Encoding"), "gzip") {
+//			// берём gzip.Reader из пула
+//			gr := gzipReaderPool.Get().(*gzip.Reader)
+//			if err := gr.Reset(r.Body); err != nil {
+//				gzipReaderPool.Put(gr) // вернуть обратно в пул, даже если ошибка
+//				http.Error(w, "Failed to reset gzip reader", http.StatusBadRequest)
+//				return
+//			}
+//
+//			// заменяем тело запроса на распакованный поток
+//			r.Body = &pooledGzipBody{
+//				Reader: gr,
+//				Closer: r.Body,
+//				pool:   &gzipReaderPool,
+//			}
+//		}
+//
+//		next.ServeHTTP(w, r)
+//	})
+//}

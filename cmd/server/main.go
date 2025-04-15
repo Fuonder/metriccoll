@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"time"
 )
 
@@ -94,6 +95,10 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
 	router.Use(h.HashMiddleware)
+
+	router.Mount("/debug/pprof", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.DefaultServeMux.ServeHTTP(w, r)
+	}))
 
 	router.Get("/", logger.HanlderWithLogger(h.WithHashing(server.GzipMiddleware(h.RootHandler))))
 	router.Route("/ping", func(router chi.Router) {
