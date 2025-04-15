@@ -3,15 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"time"
+
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/server"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/Fuonder/metriccoll.git/internal/storage/database"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
-	"time"
 )
 
 func main() {
@@ -94,6 +96,10 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
 	router.Use(h.HashMiddleware)
+
+	router.Mount("/debug/pprof", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.DefaultServeMux.ServeHTTP(w, r)
+	}))
 
 	router.Get("/", logger.HanlderWithLogger(h.WithHashing(server.GzipMiddleware(h.RootHandler))))
 	router.Route("/ping", func(router chi.Router) {

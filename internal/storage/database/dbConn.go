@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/jackc/pgx/v5/pgconn"
 	"go.uber.org/zap"
-	"strings"
-	"time"
 )
 
 func isConnectionError(err error) bool {

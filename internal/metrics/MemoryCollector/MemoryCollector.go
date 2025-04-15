@@ -8,6 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/metrics/middleware"
 	"github.com/Fuonder/metriccoll.git/internal/models"
@@ -17,9 +21,6 @@ import (
 	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"net/http"
-	"sync"
-	"time"
 )
 
 var (

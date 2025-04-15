@@ -2,8 +2,9 @@ package storage
 
 import (
 	"fmt"
-	"github.com/Fuonder/metriccoll.git/internal/models"
 	"sync"
+
+	"github.com/Fuonder/metriccoll.git/internal/models"
 )
 
 // Deprecated: Memory storage does not supported from 0.1.9 version

@@ -4,8 +4,9 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"net/http"
+
+	"github.com/Fuonder/metriccoll.git/internal/logger"
 )
 
 type hashWriter struct {

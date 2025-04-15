@@ -2,8 +2,9 @@ package metrics
 
 import (
 	"context"
-	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"time"
+
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 )
 
 type Collector interface {

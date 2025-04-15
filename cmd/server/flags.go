@@ -4,11 +4,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 )
 
 var (

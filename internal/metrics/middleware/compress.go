@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"go.uber.org/zap"
 )

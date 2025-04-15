@@ -3,13 +3,14 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Fuonder/metriccoll.git/internal/logger"
-	"github.com/Fuonder/metriccoll.git/internal/models"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/Fuonder/metriccoll.git/internal/logger"
+	"github.com/Fuonder/metriccoll.git/internal/models"
+	"go.uber.org/zap"
 )
 
 type FileStoreInfo struct {

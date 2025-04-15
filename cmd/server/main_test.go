@@ -2,15 +2,16 @@ package main
 
 import (
 	"bytes"
-	"github.com/Fuonder/metriccoll.git/internal/models"
-	"github.com/Fuonder/metriccoll.git/internal/server"
-	"github.com/Fuonder/metriccoll.git/internal/storage"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/Fuonder/metriccoll.git/internal/models"
+	"github.com/Fuonder/metriccoll.git/internal/server"
+	"github.com/Fuonder/metriccoll.git/internal/storage"
+	"github.com/stretchr/testify/require"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server,

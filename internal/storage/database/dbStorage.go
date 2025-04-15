@@ -3,13 +3,14 @@ package database
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
-	"sync"
-	"time"
 )
 
 //type DBFileStoreInfo struct {
