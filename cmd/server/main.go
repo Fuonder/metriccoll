@@ -3,16 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"time"
+
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/server"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/Fuonder/metriccoll.git/internal/storage/database"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
-	_ "net/http/pprof"
-	"time"
 )
 
 func main() {

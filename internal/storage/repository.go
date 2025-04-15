@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"github.com/Fuonder/metriccoll.git/internal/models"
 	"time"
+
+	"github.com/Fuonder/metriccoll.git/internal/models"
 )
 
 //type Storage interface {

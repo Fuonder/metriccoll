@@ -2,9 +2,10 @@ package logger
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"net/http"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var Log *zap.Logger = zap.NewNop()

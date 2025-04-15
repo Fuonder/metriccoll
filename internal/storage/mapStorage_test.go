@@ -1,9 +1,10 @@
 package storage
 
 import (
+	"testing"
+
 	model "github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestAppendGaugeMetric(t *testing.T) {
