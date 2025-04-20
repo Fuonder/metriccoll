@@ -1,7 +1,8 @@
+// Package server описывает функционал, который необходим для работы HTTP севера.
+// В том числе различные HTTP endpoint'ы и дополнительные HTTP middleware функции.
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,10 +18,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// ErrorResponse описывает структуру ошибки, которая возвращается в случае проблем при обработке запроса.
 type ErrorResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Details string `json:"details,omitempty"` // for future possible use
+	Code    int    `json:"code"`              // HTTP-код ошибки.
+	Message string `json:"message"`           // Человекочитаемое сообщение об ошибке.
+	Details string `json:"details,omitempty"` // Зарезервированное поле с описанием ошибки. На данный момент не используется.
 }
 
 var (
@@ -33,26 +35,16 @@ var (
 	ErrMismatchedHash                  = errors.New("mismatched hash")
 )
 
-var validContentTypes = map[string]struct{}{
-	"text/plain":                {},
-	"text/plain; charset=UTF-8": {},
-	"text/plain; charset=utf-8": {},
-	"application/json":          {},
-}
-
-func isValidContentType(ct string) bool {
-	_, ok := validContentTypes[ct]
-	return ok || ct == ""
-}
-
+// Handler реализует обработчики HTTP-запросов для различных endpoint-ов сервиса метрик.
 type Handler struct {
-	mReader      storage.MetricReader
-	mWriter      storage.MetricWriter
-	mFileHandler storage.MetricFileHandler
-	mDBHandler   storage.MetricDatabaseHandler
-	hashKey      string
+	mReader      storage.MetricReader          // Интерфейс для чтения метрик.
+	mWriter      storage.MetricWriter          // Интерфейс для записи метрик.
+	mFileHandler storage.MetricFileHandler     // Интерфейс для работы с файлами.
+	mDBHandler   storage.MetricDatabaseHandler // Интерфейс для взаимодействия с БД.
+	hashKey      string                        // Ключ для проверки/генерации HMAC.
 }
 
+// NewHandler создает новый экземпляр Handler и инициализирует зависимости.
 func NewHandler(mReader storage.MetricReader,
 	mWriter storage.MetricWriter,
 	mFileHandler storage.MetricFileHandler,
@@ -68,6 +60,7 @@ func NewHandler(mReader storage.MetricReader,
 	return &h
 }
 
+// RootHandler обрабатывает корневой GET-запрос и возвращает список всех метрик в text/HTML формате.
 func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 
 	if h.mReader == nil {
@@ -110,6 +103,7 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte(out))
 }
 
+// ValueHandler возвращает значение конкретной метрики по имени и типу (gauge или counter).
 func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mReader == nil {
 		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
@@ -136,6 +130,8 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// UpdateHandler обновляет значение метрики, переданной в URL-параметрах.
 func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mWriter == nil {
 		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
@@ -183,6 +179,8 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// JSONUpdateHandler обновляет метрику, переданную в теле запроса в формате JSON.
+// Возвращает обновленное значение метрики в ответе.
 func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if h.mReader == nil {
@@ -251,6 +249,7 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 
 }
 
+// JSONGetHandler возвращает значение метрики, переданной в теле запроса в формате JSON.
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if h.mReader == nil {
@@ -288,6 +287,8 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Write(resp)
 }
 
+// DBPingHandler проверяет доступность соединения с базой данных.
+// Используется для проверки состояния хранилища.
 func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mDBHandler == nil {
 		resp, _ := json.MarshalIndent(ErrMetricDBHandlerNotInitialized, "", "    ")
@@ -306,6 +307,8 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte(""))
 }
 
+// MultipleUpdateHandler обрабатывает пакетное обновление метрик, переданных в JSON-массиве.
+// Возвращает обновленные значения всех переданных метрик.
 func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	defer r.Body.Close()
@@ -367,180 +370,3 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 	rw.WriteHeader(http.StatusOK)
 	_, _ = rw.Write(resp)
 }
-
-func (h *Handler) CheckMethod(next http.Handler) http.Handler {
-	logger.Log.Debug("checking method")
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost && r.Method != http.MethodGet {
-			logger.Log.Info("wrong method", zap.String("method", r.Method))
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		} else {
-			logger.Log.Debug("method - OK")
-			next.ServeHTTP(w, r)
-		}
-	})
-}
-func (h *Handler) CheckContentType(next http.Handler) http.Handler {
-	logger.Log.Debug("checking content type")
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isValidContentType(r.Header.Get("Content-Type")) {
-			logger.Log.Info("wrong content type",
-				zap.String("Content-Type", r.Header.Get("Content-Type")))
-			http.Error(w, "invalid content type", http.StatusBadRequest)
-			return
-		} else {
-			logger.Log.Debug("content type - OK")
-			next.ServeHTTP(w, r)
-		}
-
-	})
-}
-func (h *Handler) CheckMetricType(next http.Handler) http.Handler {
-	logger.Log.Debug("checking metric type")
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mType := chi.URLParam(r, "mType")
-		if mType != "counter" && mType != "gauge" {
-			logger.Log.Info("wrong metric type",
-				zap.String("Type", mType))
-			http.Error(w, "invalid metric type", http.StatusBadRequest)
-			return
-		} else {
-			logger.Log.Debug("metric type - OK")
-			next.ServeHTTP(w, r)
-		}
-	})
-}
-
-func (h *Handler) CheckMetricName(next http.Handler) http.Handler {
-	logger.Log.Debug("checking metric name")
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		mName := chi.URLParam(r, "mName")
-		if strings.TrimSpace(mName) == "" {
-			logger.Log.Info("empty metric name")
-			http.Error(rw, "metric name is required", http.StatusNotFound)
-			return
-		} else {
-			logger.Log.Debug("metric name - OK")
-			next.ServeHTTP(rw, r)
-		}
-	})
-}
-
-func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
-	logger.Log.Debug("checking metric value")
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		mType := chi.URLParam(r, "mType")
-		mValue := chi.URLParam(r, "mValue")
-		var err error
-		logger.Log.Debug("guessing metric type")
-		if mType == "gauge" {
-			_, err = models.CheckTypeGauge(mValue)
-		} else if mType == "counter" {
-			_, err = models.CheckTypeCounter(mValue)
-		}
-		if err != nil {
-			logger.Log.Info("invalid metric value",
-				zap.Any("value", mValue))
-			http.Error(rw, "invalid metric value", http.StatusBadRequest)
-			return
-		} else {
-			logger.Log.Debug("metric value - OK")
-			next.ServeHTTP(rw, r)
-		}
-	})
-}
-
-func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		ow := rw
-		acceptEncoding := r.Header.Get("Accept-Encoding")
-		logger.Log.Info("GZIP: AcceptEncoding", zap.String("Accept-Encoding", acceptEncoding))
-		supportsGzip := strings.Contains(acceptEncoding, "gzip")
-		logger.Log.Info("GZIP: AcceptEncoding GZIP?", zap.Bool("SupportGZIP", supportsGzip))
-		if supportsGzip {
-			cw := newGzipWriter(rw)
-			ow = cw
-			ow.Header().Set("Content-Encoding", "gzip")
-			defer cw.Close()
-		}
-		contentEncoding := r.Header.Get("Content-Encoding")
-		sendsGzip := strings.Contains(contentEncoding, "gzip")
-		if sendsGzip {
-			cr, err := newGzipReader(r.Body)
-			if err != nil {
-				rw.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			r.Body = cr
-			defer cr.Close()
-		}
-		h.ServeHTTP(ow, r)
-
-	}
-}
-
-func (h *Handler) HashMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		if h.hashKey == "" {
-			next.ServeHTTP(rw, r)
-			return
-		}
-		logger.Log.Info("Validating HMAC")
-		if HMACPresent := r.Header.Get("HashSHA256"); HMACPresent != "" {
-			var bodyCopy bytes.Buffer
-			teeReader := io.TeeReader(r.Body, &bodyCopy)
-			body, err := io.ReadAll(teeReader)
-			if err != nil {
-				http.Error(rw, "Error reading request body", http.StatusInternalServerError)
-				return
-			}
-			err = validateHMAC(HMACPresent, body, h.hashKey)
-			if err != nil {
-				http.Error(rw, ErrMismatchedHash.Error(), http.StatusBadRequest)
-				return
-			}
-			logger.Log.Info("Validation", zap.String("HMAC", "CORRECT"))
-			r.Body = io.NopCloser(&bodyCopy)
-		} else {
-			logger.Log.Info("Validation", zap.String("HMAC", "No HMAC in request found, skipping validation"))
-		}
-		next.ServeHTTP(rw, r)
-	})
-}
-
-//func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
-//	return func(rw http.ResponseWriter, r *http.Request) {
-
-func (h *Handler) WithHashing(next http.HandlerFunc) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		hw := rw
-		if h.hashKey != "" {
-			hw = newHashWriter(rw, h.hashKey)
-		}
-		next.ServeHTTP(hw, r)
-	}
-}
-
-//func (h *Handler) DecompressRequestMiddleware(next http.Handler) http.Handler {
-//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-//		if strings.EqualFold(r.Header.Get("Content-Encoding"), "gzip") {
-//			// берём gzip.Reader из пула
-//			gr := gzipReaderPool.Get().(*gzip.Reader)
-//			if err := gr.Reset(r.Body); err != nil {
-//				gzipReaderPool.Put(gr) // вернуть обратно в пул, даже если ошибка
-//				http.Error(w, "Failed to reset gzip reader", http.StatusBadRequest)
-//				return
-//			}
-//
-//			// заменяем тело запроса на распакованный поток
-//			r.Body = &pooledGzipBody{
-//				Reader: gr,
-//				Closer: r.Body,
-//				pool:   &gzipReaderPool,
-//			}
-//		}
-//
-//		next.ServeHTTP(w, r)
-//	})
-//}
