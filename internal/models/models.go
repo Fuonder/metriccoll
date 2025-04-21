@@ -9,6 +9,9 @@ import (
 	"strconv"
 )
 
+func Int64Ptr(i int64) *int64       { return &i }
+func Float64Ptr(f float64) *float64 { return &f }
+
 // Gauge — тип для представления метрик с плавающей точкой, используется для значений,
 // которые могут увеличиваться и уменьшаться.
 type Gauge float64

@@ -60,7 +60,12 @@ func NewHandler(mReader storage.MetricReader,
 	return &h
 }
 
-// RootHandler обрабатывает корневой GET-запрос и возвращает список всех метрик в text/HTML формате.
+// RootHandler обрабатывает корневой GET-запрос и возвращает список всех метрик в формате text/html.
+//
+// Возвращает:
+//
+//   - 200 OK: в теле — список метрик в виде строки (например: "metric1 42.1, metric2 17")
+//   - 500 Internal Server Error: внутренняя ошибка
 func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 
 	if h.mReader == nil {
@@ -103,7 +108,18 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte(out))
 }
 
-// ValueHandler возвращает значение конкретной метрики по имени и типу (gauge или counter).
+// ValueHandler возвращает значение метрики по имени и типу (gauge или counter), переданным в URL.
+//
+// Параметры URL:
+//
+//   - mType: тип метрики (gauge | counter)
+//   - mName: имя метрики
+//
+// Возвращает:
+//
+//   - 200 OK: значение метрики в виде строки (например: "42.1").
+//   - 404 Not Found: если метрика не найдена или её тип некорректен.
+//   - 500 Internal Server Error: внутренняя ошибка.
 func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mReader == nil {
 		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
@@ -131,7 +147,19 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// UpdateHandler обновляет значение метрики, переданной в URL-параметрах.
+// UpdateHandler обновляет значение метрики, переданное через URL.
+//
+// Параметры URL:
+//
+//   - mType: тип метрики (gauge | counter)
+//   - mName: имя метрики
+//   - mValue: новое значение метрики
+//
+// Возвращает:
+//
+//   - 200 OK: при успешном обновлении.
+//   - 400 Bad Request: если значение метрики некорректное.
+//   - 500 Internal Server Error: внутренняя ошибка.
 func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mWriter == nil {
 		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
@@ -180,7 +208,30 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 // JSONUpdateHandler обновляет метрику, переданную в теле запроса в формате JSON.
-// Возвращает обновленное значение метрики в ответе.
+// Возвращает обновлённое значение метрики в JSON-ответе.
+//
+// Формат запроса (application/json):
+//
+//	{
+//	    "id": "metricName",
+//	    "type": "gauge" | "counter",
+//	    "value": 42.1,       // для gauge
+//	    "delta": 7           // для counter
+//	}
+//
+// Формат ответа (application/json):
+//
+//	{
+//	    "id": "metricName",
+//	    "type": "gauge",
+//	    "value": 42.1
+//	}
+//
+// Возвращает:
+//
+//   - 200 OK: при успешном обновлении.
+//   - 400 Bad Request: некорректный JSON, тип или значение.
+//   - 500 Internal Server Error: внутренняя ошибка.
 func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if h.mReader == nil {
@@ -250,6 +301,28 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 // JSONGetHandler возвращает значение метрики, переданной в теле запроса в формате JSON.
+//
+// Формат запроса (application/json):
+//
+//	{
+//	    "id": "metricName",
+//	    "type": "gauge" | "counter"
+//	}
+//
+// Формат ответа (application/json):
+//
+//	{
+//	    "id": "metricName",
+//	    "type": "gauge",
+//	    "value": 42.1
+//	}
+//
+// Возвращает:
+//
+//   - 200 OK: при успешном получении метрики.
+//   - 400 Bad Request: некорректный JSON или тип.
+//   - 404 Not Found: если метрика не найдена.
+//   - 500 Internal Server Error: внутренняя ошибка.
 func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	if h.mReader == nil {
@@ -288,7 +361,13 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 }
 
 // DBPingHandler проверяет доступность соединения с базой данных.
-// Используется для проверки состояния хранилища.
+//
+// Используется для health-check.
+//
+// Возвращает:
+//
+//   - 200 OK: если соединение с базой установлено.
+//   - 500 Internal Server Error: если не удалось подключиться к БД или другая внутренняя ошибка.
 func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mDBHandler == nil {
 		resp, _ := json.MarshalIndent(ErrMetricDBHandlerNotInitialized, "", "    ")
@@ -307,8 +386,29 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte(""))
 }
 
-// MultipleUpdateHandler обрабатывает пакетное обновление метрик, переданных в JSON-массиве.
-// Возвращает обновленные значения всех переданных метрик.
+// MultipleUpdateHandler обрабатывает пакетное обновление метрик, переданных массивом JSON.
+//
+// Формат запроса (application/json):
+// [
+//
+//	{"id": "metric1", "type": "gauge", "value": 123.45},
+//	{"id": "metric2", "type": "counter", "delta": 7}
+//
+// ]
+//
+// Формат ответа (application/json):
+// [
+//
+//	{"id": "metric1", "type": "gauge", "value": 123.45},
+//	{"id": "metric2", "type": "counter", "delta": 17}
+//
+// ]
+//
+// Возвращает:
+//
+//   - 200 OK: при успешном обновлении всех метрик.
+//   - 400 Bad Request: при ошибках в формате запроса, значениях метрик или при ошибке чтения/записи.
+//   - 500 Internal Server Error: внутренняя ошибка.
 func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 	defer r.Body.Close()
