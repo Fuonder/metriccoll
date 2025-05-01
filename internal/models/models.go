@@ -9,7 +9,12 @@ import (
 	"strconv"
 )
 
-func Int64Ptr(i int64) *int64       { return &i }
+// Int64Ptr — функция (макрос), которая принимает int64 и возвращает ссылку на него.
+// Данная функция необходима для упрощения работы со структурой Metrics
+func Int64Ptr(i int64) *int64 { return &i }
+
+// Float64Ptr — функция (макрос), которая принимает float64 и возвращает ссылку на него.
+// Данная функция необходима для упрощения работы со структурой Metrics
 func Float64Ptr(f float64) *float64 { return &f }
 
 // Gauge — тип для представления метрик с плавающей точкой, используется для значений,
@@ -54,8 +59,12 @@ func (t Counter) Type() string {
 // Metrics представляет метрики с идентификатором, типом и значениями.
 // В зависимости от типа метрики, значение может быть указано в Metrics.delta для Counter или Metrics.value для Gauge.
 type Metrics struct {
-	ID    string   `json:"id"`              // Идентификатор метрики
-	MType string   `json:"type"`            // Тип метрики, может быть "counter" или "gauge"
-	Delta *int64   `json:"delta,omitempty"` // Значение метрики типа Counter
-	Value *float64 `json:"value,omitempty"` // Значение метрики типа Gauge
+	// Идентификатор метрики
+	ID string `json:"id"`
+	// Тип метрики, может быть "counter" или "gauge"
+	MType string `json:"type"`
+	// Значение метрики типа Counter
+	Delta *int64 `json:"delta,omitempty"`
+	// Значение метрики типа Gauge
+	Value *float64 `json:"value,omitempty"`
 }

@@ -107,10 +107,9 @@ func (h *Handler) CheckMetricValue(next http.Handler) http.Handler {
 				zap.Any("value", mValue))
 			http.Error(rw, "invalid metric value", http.StatusBadRequest)
 			return
-		} else {
-			logger.Log.Debug("metric value - OK")
-			next.ServeHTTP(rw, r)
 		}
+		logger.Log.Debug("metric value - OK")
+		next.ServeHTTP(rw, r)
 	})
 }
 
@@ -185,26 +184,3 @@ func (h *Handler) WithHashing(next http.HandlerFunc) http.HandlerFunc {
 		next.ServeHTTP(hw, r)
 	}
 }
-
-//func (h *Handler) DecompressRequestMiddleware(next http.Handler) http.Handler {
-//	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-//		if strings.EqualFold(r.Header.Get("Content-Encoding"), "gzip") {
-//			// берём gzip.Reader из пула
-//			gr := gzipReaderPool.Get().(*gzip.Reader)
-//			if err := gr.Reset(r.Body); err != nil {
-//				gzipReaderPool.Put(gr) // вернуть обратно в пул, даже если ошибка
-//				http.Error(w, "Failed to reset gzip reader", http.StatusBadRequest)
-//				return
-//			}
-//
-//			// заменяем тело запроса на распакованный поток
-//			r.Body = &pooledGzipBody{
-//				Reader: gr,
-//				Closer: r.Body,
-//				pool:   &gzipReaderPool,
-//			}
-//		}
-//
-//		next.ServeHTTP(w, r)
-//	})
-//}
