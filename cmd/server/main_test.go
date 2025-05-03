@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,7 +24,12 @@ func testRequest(t *testing.T, ts *httptest.Server,
 	req.Header.Set("Accept-Encoding", "")
 	resp, err := ts.Client().Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error closing body: %s\n", err)
+		}
+	}(resp.Body)
 
 	respBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -157,14 +163,24 @@ func TestMetricRouter(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			resp, _ := testRequest(t, ts, test.method, test.contentType, test.url)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					fmt.Printf("Error closing body: %s\n", err)
+				}
+			}(resp.Body)
 			require.Equal(t, test.want, resp.StatusCode)
 		})
 	}
 	for _, test := range testsGet {
 		t.Run(test.name, func(t *testing.T) {
 			resp, body := testRequest(t, ts, test.method, test.contentType, test.url)
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					fmt.Printf("Error closing body: %s\n", err)
+				}
+			}(resp.Body)
 			require.Equal(t, test.want, resp.StatusCode)
 			require.Equal(t, test.wantResp, body)
 		})
@@ -179,7 +195,12 @@ func testJSONRequest(t *testing.T, ts *httptest.Server,
 	resp, err := ts.Client().Do(req)
 
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error closing body: %s\n", err)
+		}
+	}(resp.Body)
 
 	respBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -281,7 +302,12 @@ func TestJSONHandling(t *testing.T) {
 
 			require.NoError(t, err)
 			resp, stringResp := testJSONRequest(t, ts, test.method, test.contentType, test.url, []byte(test.body))
-			defer resp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
+					fmt.Printf("can not close body: %s\n", err)
+				}
+			}(resp.Body)
 			require.Equal(t, test.want.statusCode, resp.StatusCode)
 			if !test.want.err {
 				require.JSONEq(t, test.want.wantResp, stringResp)
