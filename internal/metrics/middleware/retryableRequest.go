@@ -1,10 +1,11 @@
 package middleware
 
 import (
+	"time"
+
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"go.uber.org/zap"
-	"time"
 )
 
 type workerSendFunc func([]byte, string) error

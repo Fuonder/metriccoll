@@ -5,6 +5,7 @@ go 1.22.12
 require (
 	github.com/go-chi/chi/v5 v5.2.0
 	github.com/go-resty/resty/v2 v2.16.5
+	github.com/golang/mock v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/stretchr/testify v1.10.0

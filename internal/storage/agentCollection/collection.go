@@ -2,13 +2,14 @@ package agentcollection
 
 import (
 	"context"
-	"github.com/Fuonder/metriccoll.git/internal/logger"
-	model "github.com/Fuonder/metriccoll.git/internal/models"
-	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"math/rand/v2"
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/Fuonder/metriccoll.git/internal/logger"
+	model "github.com/Fuonder/metriccoll.git/internal/models"
+	"github.com/Fuonder/metriccoll.git/internal/storage"
 )
 
 type MetricsCollection struct {

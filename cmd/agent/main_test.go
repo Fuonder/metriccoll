@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
-	model "github.com/Fuonder/metriccoll.git/internal/models"
-	"github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	model "github.com/Fuonder/metriccoll.git/internal/models"
+	agentcollection "github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMetrics_updateValues(t *testing.T) {
