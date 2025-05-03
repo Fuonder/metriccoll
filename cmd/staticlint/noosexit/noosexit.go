@@ -155,9 +155,10 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					// fmt.Printf("Direct call to os.Exit found, reporting...\n")
 					// Регистрируем проблему — прямой вызов os.Exit в main.main
 					pass.Reportf(callExpr.Pos(), "direct call to os.Exit is forbidden in main.main")
-				} else {
-					// fmt.Printf("Not os.Exit, skipping\n")
 				}
+				/*	else {
+					// fmt.Printf("Not os.Exit, skipping\n")
+				}*/
 
 				return true
 			})
