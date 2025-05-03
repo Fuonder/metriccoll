@@ -223,11 +223,11 @@ func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, e
 	}
 	defer func(rowsGauge *sql.Rows) {
 		err := rowsGauge.Close()
+
 		if err != nil {
-			if err != nil {
-				logger.Log.Warn("Rows can not be closed", zap.Error(err))
-			}
+			logger.Log.Warn("Rows can not be closed", zap.Error(err))
 		}
+
 	}(rowsGauge)
 
 	for rowsGauge.Next() {
