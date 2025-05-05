@@ -89,7 +89,12 @@ func (st *JSONStorage) loadMetricsFromFile() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			logger.Log.Debug("failed to close file", zap.Error(err))
+		}
+	}(file)
 
 	data, err := io.ReadAll(file)
 	if err != nil {

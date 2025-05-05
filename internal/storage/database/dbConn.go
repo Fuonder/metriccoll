@@ -146,7 +146,12 @@ func (c *PSQLConnection) AppendGaugeMetric(ctx context.Context, metric models.Me
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			logger.Log.Warn("can not rollback transaction", zap.Error(err))
+		}
+	}(tx)
 
 	query := `
 			INSERT INTO gauge_metrics (id, type, value)
@@ -166,7 +171,12 @@ func (c *PSQLConnection) AppendCounterMetric(ctx context.Context, metric models.
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			logger.Log.Warn("can not rollback transaction", zap.Error(err))
+		}
+	}(tx)
 
 	query := `
 			INSERT INTO counter_metrics (id, type, delta)
@@ -190,7 +200,12 @@ func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, e
 	if err != nil {
 		return []models.Metrics{}, fmt.Errorf("can not query counter metrics: %w", err)
 	}
-	defer rowsCounter.Close()
+	defer func(rowsCounter *sql.Rows) {
+		err := rowsCounter.Close()
+		if err != nil {
+			logger.Log.Warn("Rows can not be closed", zap.Error(err))
+		}
+	}(rowsCounter)
 	for rowsCounter.Next() {
 		var m models.Metrics
 		if err := rowsCounter.Scan(&m.ID, &m.MType, &m.Delta); err != nil {
@@ -206,7 +221,15 @@ func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, e
 	if err != nil {
 		return []models.Metrics{}, fmt.Errorf("can not query gauge metrics: %w", err)
 	}
-	defer rowsGauge.Close()
+	defer func(rowsGauge *sql.Rows) {
+		err := rowsGauge.Close()
+
+		if err != nil {
+			logger.Log.Warn("Rows can not be closed", zap.Error(err))
+		}
+
+	}(rowsGauge)
+
 	for rowsGauge.Next() {
 		var m models.Metrics
 		if err := rowsGauge.Scan(&m.ID, &m.MType, &m.Value); err != nil {
@@ -225,7 +248,12 @@ func (c *PSQLConnection) AppendBatch(ctx context.Context, metrics []models.Metri
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			logger.Log.Warn("can not rollback transaction", zap.Error(err))
+		}
+	}(tx)
 
 	stmtGauge, err := tx.PrepareContext(ctx,
 		`
@@ -237,7 +265,12 @@ func (c *PSQLConnection) AppendBatch(ctx context.Context, metrics []models.Metri
 	if err != nil {
 		return err
 	}
-	defer stmtGauge.Close()
+	defer func(stmtGauge *sql.Stmt) {
+		err := stmtGauge.Close()
+		if err != nil {
+			logger.Log.Warn("Can not close gauge metric", zap.Error(err))
+		}
+	}(stmtGauge)
 	stmtCounter, err := tx.PrepareContext(ctx,
 		`
 			INSERT INTO counter_metrics (id, type, delta)
@@ -248,7 +281,12 @@ func (c *PSQLConnection) AppendBatch(ctx context.Context, metrics []models.Metri
 	if err != nil {
 		return err
 	}
-	defer stmtCounter.Close()
+	defer func(stmtCounter *sql.Stmt) {
+		err := stmtCounter.Close()
+		if err != nil {
+			logger.Log.Warn("can not close counter metric", zap.Error(err))
+		}
+	}(stmtCounter)
 
 	for _, m := range metrics {
 		if m.MType == "gauge" {

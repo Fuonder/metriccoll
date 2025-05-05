@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
-
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	memcollector "github.com/Fuonder/metriccoll.git/internal/metrics/MemoryCollector"
 	agentcollection "github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"log"
 )
 
 var (

@@ -81,7 +81,12 @@ func run() error {
 			return err
 		}
 		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage, FlagsOptions.HashKey)
-		defer dbStorage.Close()
+		defer func(dbStorage *database.DBStorage) {
+			err := dbStorage.Close()
+			if err != nil {
+				logger.Log.Warn("Cannot close db", zap.Error(err))
+			}
+		}(dbStorage)
 	}
 
 	logger.Log.Info("Listening at",

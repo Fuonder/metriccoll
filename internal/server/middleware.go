@@ -126,7 +126,12 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 			cw := newGzipWriter(rw)
 			ow = cw
 			ow.Header().Set("Content-Encoding", "gzip")
-			defer cw.Close()
+			defer func(cw *gzipWriter) {
+				err := cw.Close()
+				if err != nil {
+					logger.Log.Debug("can not close writer", zap.Error(err))
+				}
+			}(cw)
 		}
 		contentEncoding := r.Header.Get("Content-Encoding")
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
@@ -137,7 +142,12 @@ func GzipMiddleware(h http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 			r.Body = cr
-			defer cr.Close()
+			defer func(cr *gzipReader) {
+				err := cr.Close()
+				if err != nil {
+					logger.Log.Debug("can not close reader", zap.Error(err))
+				}
+			}(cr)
 		}
 		h.ServeHTTP(ow, r)
 

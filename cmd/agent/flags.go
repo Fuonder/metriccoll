@@ -24,11 +24,14 @@ var (
 )
 
 var usage = func() {
-	fmt.Fprintf(flag.CommandLine.Output(), "%s\nSource code:\t%s\nVersion:\t%s\nUsage of %s:\n",
+	_, err := fmt.Fprintf(flag.CommandLine.Output(), "%s\nSource code:\t%s\nVersion:\t%s\nUsage of %s:\n",
 		progName,
 		source,
 		version,
 		progName)
+	if err != nil {
+		return
+	}
 	flag.PrintDefaults()
 }
 
