@@ -13,10 +13,19 @@ import (
 )
 
 var (
-	version  = "0.1.15"
-	progName = "Fuonder's ya-practicum server"
-	source   = "https://github.com/Fuonder/metriccoll"
+	version      = "0.1.20"
+	progName     = "Fuonder's ya-practicum server"
+	source       = "https://github.com/Fuonder/metriccoll"
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
 )
+
+func printBuildInfo() {
+	fmt.Println("Build Version:", buildVersion)
+	fmt.Println("Build Date:", buildDate)
+	fmt.Println("Build Commit:", buildCommit)
+}
 
 var usage = func() {
 	_, err := fmt.Fprintf(flag.CommandLine.Output(), "%s\nSource code:\t%s\nVersion:\t%s\nUsage of %s:\n",

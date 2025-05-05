@@ -17,6 +17,7 @@ var (
 )
 
 func main() {
+	printBuildInfo()
 	if err := logger.Initialize("Info"); err != nil {
 		panic(err)
 	}

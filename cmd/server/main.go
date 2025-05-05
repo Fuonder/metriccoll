@@ -17,6 +17,7 @@ import (
 )
 
 func main() {
+	printBuildInfo()
 	err := parseFlags()
 	if err != nil {
 		log.Fatal(err)
