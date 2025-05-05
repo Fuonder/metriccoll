@@ -70,7 +70,7 @@ var Analyzer = &analysis.Analyzer{
 func run(pass *analysis.Pass) (interface{}, error) {
 	// fmt.Printf("Analyzing package: %s\n", pass.Pkg.Name())
 
-	// Проверяем, что анализируется именно пакет "main"
+	// Проверяем, что анализируется именно пакет "main".
 	if pass.Pkg.Name() != "main" {
 		// fmt.Printf("Skipping package %s (not 'main')\n", pass.Pkg.Name())
 		return nil, nil
