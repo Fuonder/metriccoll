@@ -27,6 +27,10 @@ var (
 )
 
 func printBuildInfo() {
+	if GeneratedBuildInfo != nil {
+		fmt.Println(GeneratedBuildInfo.String())
+		return
+	}
 	fmt.Println("Build Version:", buildVersion)
 	fmt.Println("Build Date:", buildDate)
 	fmt.Println("Build Commit:", buildCommit)

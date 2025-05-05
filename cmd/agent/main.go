@@ -16,6 +16,8 @@ var (
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
 
+//go:generate go run ../buildgen/genBuildInfo.go
+
 func main() {
 	printBuildInfo()
 	if err := logger.Initialize("Info"); err != nil {

@@ -16,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate go run ../buildgen/genBuildInfo.go
+
 func main() {
 	printBuildInfo()
 	err := parseFlags()
