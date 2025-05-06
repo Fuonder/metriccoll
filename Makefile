@@ -21,9 +21,14 @@ LDFLAGS := -ldflags "\
     -X 'main.buildCommit=$(COMMIT)' \
     -X 'main.buildDate=$(BUILD_DATE)'"
 
+LDFLAGS_CUSTOM := -ldflags "\
+    -X 'main.buildVersion=CUSTOM_LD_VERSION' \
+    -X 'main.buildCommit=CUSTOM_LD_COMMIT' \
+    -X 'main.buildDate=1970-01-01T00:00:00Z'"
+
 ALL_TARGETS := $(AGENT) $(SERVER) $(LINT)
 
-.PHONY: all clean generate $(ALL_TARGETS)
+.PHONY: all clean generate ldgen $(ALL_TARGETS)
 
 all: $(ALL_TARGETS)
 
@@ -60,6 +65,16 @@ generate: $(DIST)
 	$(GO_BUILD) -tags=generated -o $(DIST)/$(AGENT) $(AGENT_PATH)
 	$(GO_BUILD) -tags=generated -o $(DIST)/$(SERVER) $(SERVER_PATH)
 	$(GO_BUILD) -tags=generated -o $(DIST)/$(LINT) $(LINT_PATH)
+
+ldgen: $(DIST)
+	@echo "    Running go generate..."
+	go generate ./...
+
+	@echo "    Building all targets with -tags=generate..."
+	$(GO_BUILD) -tags=generated $(LDFLAGS_CUSTOM) -o $(DIST)/$(AGENT) $(AGENT_PATH)
+	$(GO_BUILD) -tags=generated $(LDFLAGS_CUSTOM) -o $(DIST)/$(SERVER) $(SERVER_PATH)
+	$(GO_BUILD) -tags=generated $(LDFLAGS_CUSTOM) -o $(DIST)/$(LINT) $(LINT_PATH)
+
 
 genclean: clean
 	@echo "   Removing generated Go files (excluding generator scripts)..."

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -19,7 +20,9 @@ import (
 //go:generate go run ../buildgen/genBuildInfo.go
 
 func main() {
-	printBuildInfo()
+	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
+	fmt.Println(bInfo.String())
+
 	err := parseFlags()
 	if err != nil {
 		log.Fatal(err)
@@ -55,7 +58,6 @@ func createJSONStorage() (*storage.JSONStorage, error) {
 }
 
 func run() error {
-
 	var handler *server.Handler
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

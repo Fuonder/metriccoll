@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	memcollector "github.com/Fuonder/metriccoll.git/internal/metrics/MemoryCollector"
 	agentcollection "github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
@@ -19,7 +21,9 @@ var (
 //go:generate go run ../buildgen/genBuildInfo.go
 
 func main() {
-	printBuildInfo()
+	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
+	fmt.Println(bInfo.String())
+
 	if err := logger.Initialize("Info"); err != nil {
 		panic(err)
 	}

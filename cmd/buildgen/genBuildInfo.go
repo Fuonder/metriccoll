@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	version := git("git describe --tags --always --dirty")
+	version := "Generated-" + git("git describe --tags --always --dirty")
 	commit := git("git rev-parse --short HEAD")
 	buildDate := time.Now().UTC().Format(time.RFC3339)
 	compiler := runtime.Version()
@@ -22,42 +22,20 @@ func main() {
 package main
 
 import (
-	"fmt"
-	"time"
+	"github.com/Fuonder/metriccoll.git/cmd/buildinfo"
 )
 
-type BuildInfo struct {
-    // BuildVersion is the version of build from Git tags.
-	BuildVersion string    `+"`json:\"version\"`"+`
-	// BuildCommit is the short representation of git commit hash.
-	BuildCommit  string    `+"`json:\"commit_id\"`"+`
-	// BuildDate is the build date.
-	BuildDate    time.Time `+"`json:\"time\"`"+`
-	// Compiler is the version of Go compiler used for building.
-	Compiler     string    `+"`json:\"compiler\"`"+`
+var (
+	buildVersion = "N/A"
+	buildDate    = "N/A"
+	buildCommit  = "N/A"
+)
 
-}
-
-var GeneratedBuildInfo = &BuildInfo{
+var GeneratedBuildInfo = &buildinfo.BuildInfo{
 	BuildVersion: "%s",
 	BuildCommit:  "%s",
-	BuildDate:    mustParseTime("%s"),
+	BuildDate:    buildinfo.MustParseTime("%s"),
 	Compiler:     "%s",
-}
-
-func (b *BuildInfo) String() string {
-	return fmt.Sprintf(
-		"Build Version : %%s\nBuild Commit  : %%s\nBuild Date    : %%s\nCompiler      : %%s\n",
-		b.BuildVersion, b.BuildCommit, b.BuildDate.Format(time.RFC3339), b.Compiler,
-	)
-}
-
-func mustParseTime(val string) time.Time {
-	t, err := time.Parse(time.RFC3339, val)
-	if err != nil {
-		panic(err)
-	}
-	return t
 }
 `, version, commit, buildDate, compiler)
 

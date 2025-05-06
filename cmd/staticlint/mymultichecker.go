@@ -94,7 +94,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Fuonder/metriccoll.git/cmd/staticlint/noosexit"
+	"github.com/Fuonder/metriccoll.git/noosexit"
 	"github.com/gordonklaus/ineffassign/pkg/ineffassign"
 	"github.com/kisielk/errcheck/errcheck"
 	"golang.org/x/tools/go/analysis"
