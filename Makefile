@@ -61,7 +61,7 @@ generate: $(DIST)
 	@echo "    Running go generate..."
 	go generate ./...
 
-	@echo "    Building all targets with -tags=generate..."
+	@echo "    Building all targets with -tags=generated..."
 	$(GO_BUILD) -tags=generated -o $(DIST)/$(AGENT) $(AGENT_PATH)
 	$(GO_BUILD) -tags=generated -o $(DIST)/$(SERVER) $(SERVER_PATH)
 	$(GO_BUILD) -tags=generated -o $(DIST)/$(LINT) $(LINT_PATH)
@@ -70,7 +70,7 @@ ldgen: $(DIST)
 	@echo "    Running go generate..."
 	go generate ./...
 
-	@echo "    Building all targets with -tags=generate..."
+	@echo "    Building all targets with -tags=generated..."
 	$(GO_BUILD) -tags=generated $(LDFLAGS_CUSTOM) -o $(DIST)/$(AGENT) $(AGENT_PATH)
 	$(GO_BUILD) -tags=generated $(LDFLAGS_CUSTOM) -o $(DIST)/$(SERVER) $(SERVER_PATH)
 	$(GO_BUILD) -tags=generated $(LDFLAGS_CUSTOM) -o $(DIST)/$(LINT) $(LINT_PATH)
