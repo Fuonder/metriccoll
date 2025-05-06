@@ -317,6 +317,12 @@ func (c *MemoryCollector) CheckConnection() error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
+	//defer func(Body io.ReadCloser) {
+	//	err := Body.Close()
+	//	if err != nil {
+	//		logger.Log.Warn("Failed to close body", zap.Error(err))
+	//	}
+	//}(resp.Body)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {

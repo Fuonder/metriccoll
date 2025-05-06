@@ -35,7 +35,12 @@ func gzipDecompress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed init compress reader: %v", err)
 	}
-	defer reader.Close()
+	defer func(reader *gzip.Reader) {
+		err := reader.Close()
+		if err != nil {
+			logger.Log.Info("Failed to close reader", zap.Error(err))
+		}
+	}(reader)
 
 	var buffer bytes.Buffer
 	_, err = buffer.ReadFrom(reader)
