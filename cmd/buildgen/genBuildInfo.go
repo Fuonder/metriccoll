@@ -22,7 +22,7 @@ func main() {
 package main
 
 import (
-	"github.com/Fuonder/metriccoll.git/cmd/buildinfo"
+	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
 )
 
 var (
