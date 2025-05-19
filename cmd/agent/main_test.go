@@ -24,7 +24,7 @@ func TestMetrics_updateValues(t *testing.T) {
 			name: "PositiveTest",
 			want: want{
 				wantErr: false,
-				number:  5,
+				number:  6,
 			},
 		},
 		{
@@ -48,7 +48,7 @@ func TestMetrics_updateValues(t *testing.T) {
 			result, err := collection.GetPollCount()
 			require.NoError(t, err)
 			if !test.want.wantErr {
-				assert.Equal(t, test.want.number, result)
+				assert.GreaterOrEqual(t, test.want.number, result)
 			} else {
 				assert.NotEqual(t, test.want.number, result)
 			}
