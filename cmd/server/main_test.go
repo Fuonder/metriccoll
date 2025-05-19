@@ -159,9 +159,9 @@ func TestMetricRouter(t *testing.T) {
 	cipherManager, err := certmanager.NewCertManager()
 	require.NoError(t, err)
 
-	err = cipherManager.LoadPrivateKey(FlagsOptions.CryptoKey)
-
+	err = cipherManager.LoadPrivateKey("../certs/server.key")
 	require.NoError(t, err)
+
 	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
@@ -291,9 +291,9 @@ func TestJSONHandling(t *testing.T) {
 	cipherManager, err := certmanager.NewCertManager()
 	require.NoError(t, err)
 
-	err = cipherManager.LoadPrivateKey(FlagsOptions.CryptoKey)
+	err = cipherManager.LoadPrivateKey("../certs/server.key")
 	require.NoError(t, err)
-	err = cipherManager.LoadCertificate("../agent/server.crt")
+	err = cipherManager.LoadCertificate("../certs/server.crt")
 	require.NoError(t, err)
 
 	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey)

@@ -34,13 +34,13 @@ func saltToInt64(s string) int64 {
 }
 
 func writeCertificates(certPEM bytes.Buffer, keyPEM bytes.Buffer) {
-	err := os.WriteFile("server.crt", certPEM.Bytes(), 0644)
+	err := os.WriteFile("../certs/server.crt", certPEM.Bytes(), 0644)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("server.crt generated")
 
-	err = os.WriteFile("server.key", keyPEM.Bytes(), 0644)
+	err = os.WriteFile("../certs/server.key", keyPEM.Bytes(), 0644)
 	if err != nil {
 		panic(err)
 	}

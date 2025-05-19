@@ -103,7 +103,7 @@ var (
 		Restore:         true,
 		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
 		HashKey:         "",
-		CryptoKey:       "./server.key",
+		CryptoKey:       "./certs/server.key",
 	}
 
 	netAddr = &netAddress{
@@ -122,7 +122,7 @@ func parseFlags() error {
 	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")
 	flag.StringVar(&FlagsOptions.DatabaseDSN, "d", "", "Database DSN")
 	flag.StringVar(&FlagsOptions.HashKey, "k", "", "Hash key")
-	flag.StringVar(&FlagsOptions.CryptoKey, "crypto-key", "./server.key", "Path to private key file")
+	flag.StringVar(&FlagsOptions.CryptoKey, "crypto-key", "./certs/server.key", "Path to private key file")
 
 	flag.Parse()
 

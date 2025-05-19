@@ -97,7 +97,7 @@ var (
 		PollInterval:   2 * time.Second,
 		HashKey:        "",
 		RateLimit:      1,
-		CryptoKey:      "./server.crt",
+		CryptoKey:      "./certs/server.crt",
 	}
 	netAddr = &NetAddress{
 		IPAddr: "localhost",
@@ -115,7 +115,7 @@ func parseFlags() error {
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
 	flag.StringVar(&CliOpt.HashKey, "k", "", "key for hash")
 	flag.Int64Var(&rate, "l", 1, "rate limit")
-	flag.StringVar(&CliOpt.CryptoKey, "crypto-key", "./server.crt", "Path to private key file")
+	flag.StringVar(&CliOpt.CryptoKey, "crypto-key", "./certs/server.crt", "Path to private key file")
 
 	flag.Parse()
 	var err error
