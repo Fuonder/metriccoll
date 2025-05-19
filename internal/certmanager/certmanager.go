@@ -99,7 +99,7 @@ func (m *CertManager) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
 	if err != nil {
 		logger.Log.Warn("decryption failed", zap.Error(err))
 		logger.Log.Warn("Trying to process with no decryption...")
-		return plaintext, nil
+		return ciphertext, nil
 	}
 	logger.Log.Info("Buffer decrypted successfully")
 	return plaintext, nil

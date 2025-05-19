@@ -215,7 +215,6 @@ func (h *Handler) DecryptionMiddleware(next http.Handler) http.Handler {
 		}
 		r.Body = io.NopCloser(bytes.NewReader(plaintext))
 		r.ContentLength = int64(len(plaintext))
-		logger.Log.Debug("Restored body", zap.Any("body", r.Body))
 		next.ServeHTTP(rw, r)
 	})
 }
