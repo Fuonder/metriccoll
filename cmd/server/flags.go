@@ -97,7 +97,7 @@ var (
 		NetAddress: netAddress{
 			ipaddr: "localhost",
 			port:   8080},
-		LogLevel:        "info",
+		LogLevel:        "debug",
 		StoreInterval:   300 * time.Second,
 		FileStoragePath: "./metrics.dump",
 		Restore:         true,
@@ -116,7 +116,7 @@ var (
 func parseFlags() error {
 	flag.Usage = usage
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
-	flag.StringVar(&FlagsOptions.LogLevel, "l", "info", "loglevel")
+	flag.StringVar(&FlagsOptions.LogLevel, "l", "debug", "loglevel")
 	flag.Int64Var(&sIntervalInt64, "i", 300, "interval for metrics dump in seconds")
 	flag.StringVar(&FlagsOptions.FileStoragePath, "f", "./metrics.dump", "Path to metrics dump file")
 	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")

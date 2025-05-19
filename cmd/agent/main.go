@@ -24,7 +24,7 @@ func main() {
 	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
 	fmt.Println(bInfo.String())
 
-	if err := logger.Initialize("Info"); err != nil {
+	if err := logger.Initialize("Debug"); err != nil {
 		panic(err)
 	}
 
