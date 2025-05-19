@@ -187,7 +187,10 @@ func parseFlags() error {
 		}
 	} else {
 		if !validation.CheckFilePresence(CliOpt.CryptoKey) {
-			return fmt.Errorf("invalid CRYPTO_KEY value: file '%v' does not exists", CliOpt.CryptoKey)
+			CliOpt.CryptoKey, err = validation.FindCRTFile()
+			if err != nil {
+				return fmt.Errorf("invalid CRYPTO_KEY value: file '%v' does not exists", CliOpt.CryptoKey)
+			}
 		}
 	}
 

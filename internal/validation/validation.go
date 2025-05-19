@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -83,4 +84,37 @@ func ValidatePositiveInt64(interval int64) error {
 		return fmt.Errorf("interval out of range: %d", interval)
 	}
 	return nil
+}
+
+func findFile(root string, fileName string) (string, error) {
+	var result string
+
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.Name() == fileName {
+			result = path
+			return filepath.SkipDir // stop walking once found
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("error walking directory: %w", err)
+	}
+
+	if result == "" {
+		return "", fmt.Errorf("file %s not found", fileName)
+	}
+
+	return result, nil
+}
+
+func FindCRTFile() (string, error) {
+	return findFile(".", "server.crt")
+}
+
+func FindKEYFile() (string, error) {
+	return findFile(".", "server.key")
 }

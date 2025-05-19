@@ -186,7 +186,11 @@ func parseFlags() error {
 		}
 	} else {
 		if !validation.CheckFilePresence(FlagsOptions.CryptoKey) {
-			return fmt.Errorf("invalid CRYPTO_KEY value: file '%s' does not exists", FlagsOptions.CryptoKey)
+			var err error
+			FlagsOptions.CryptoKey, err = validation.FindKEYFile()
+			if err != nil {
+				return fmt.Errorf("invalid CRYPTO_KEY value: file '%s' does not exists\n curdir:", FlagsOptions.CryptoKey)
+			}
 		}
 	}
 
