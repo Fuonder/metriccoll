@@ -272,12 +272,12 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
 	if err != nil {
 		return fmt.Errorf("failed to compress request body: %w", err)
 	}
-
+	logger.Log.Debug("GZIPED DATA", zap.Any("data", cBody))
 	cBody, err = c.cipherManager.Cipher(cBody)
 	if err != nil {
 		return fmt.Errorf("failed to cipher: %w", err)
 	}
-
+	logger.Log.Debug("CIPHERED DATA", zap.Any("data", cBody))
 	var resp *resty.Response
 
 	if c.hashKey != "" {
