@@ -98,7 +98,8 @@ func (m *CertManager) Decrypt(ciphertext []byte) (plaintext []byte, err error) {
 	plaintext, err = rsa.DecryptPKCS1v15(nil, m.key, ciphertext)
 	if err != nil {
 		logger.Log.Warn("decryption failed", zap.Error(err))
-		return []byte{}, fmt.Errorf("decryption failed: %v", err)
+		logger.Log.Warn("Trying to process with no decryption...")
+		return plaintext, nil
 	}
 	logger.Log.Info("Buffer decrypted successfully")
 	return plaintext, nil
