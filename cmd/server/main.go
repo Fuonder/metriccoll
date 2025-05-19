@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -16,7 +17,12 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate go run ../buildgen/genBuildInfo.go
+
 func main() {
+	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
+	fmt.Println(bInfo.String())
+
 	err := parseFlags()
 	if err != nil {
 		log.Fatal(err)
@@ -52,7 +58,6 @@ func createJSONStorage() (*storage.JSONStorage, error) {
 }
 
 func run() error {
-
 	var handler *server.Handler
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -81,7 +86,12 @@ func run() error {
 			return err
 		}
 		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage, FlagsOptions.HashKey)
-		defer dbStorage.Close()
+		defer func(dbStorage *database.DBStorage) {
+			err := dbStorage.Close()
+			if err != nil {
+				logger.Log.Warn("Cannot close db", zap.Error(err))
+			}
+		}(dbStorage)
 	}
 
 	logger.Log.Info("Listening at",

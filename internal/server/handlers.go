@@ -73,7 +73,10 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", "text/html")
 		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
 		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -105,7 +108,10 @@ func (h *Handler) RootHandler(rw http.ResponseWriter, r *http.Request) {
 	out := strings.Join(stringMetricList, ", ")
 	rw.Header().Set("Content-Type", "text/html")
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte(out))
+	_, err := rw.Write([]byte(out))
+	if err != nil {
+		return
+	}
 }
 
 // ValueHandler возвращает значение метрики по имени и типу (gauge или counter), переданным в URL.
@@ -124,7 +130,10 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mReader == nil {
 		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
 		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -139,10 +148,16 @@ func (h *Handler) ValueHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if metric.MType == "gauge" {
-		io.WriteString(rw, strconv.FormatFloat(*metric.Value, 'f', -1, 64))
+		_, err := io.WriteString(rw, strconv.FormatFloat(*metric.Value, 'f', -1, 64))
+		if err != nil {
+			return
+		}
 		return
 	} else if metric.MType == "counter" {
-		io.WriteString(rw, strconv.FormatInt(*metric.Delta, 10))
+		_, err := io.WriteString(rw, strconv.FormatInt(*metric.Delta, 10))
+		if err != nil {
+			return
+		}
 		return
 	}
 }
@@ -164,7 +179,10 @@ func (h *Handler) UpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mWriter == nil {
 		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
 		rw.WriteHeader(ErrMetricWriterNotInitialized.Code)
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -237,14 +255,20 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mReader == nil {
 		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
 		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 		return
 	}
 
 	if h.mWriter == nil {
 		resp, _ := json.MarshalIndent(ErrMetricWriterNotInitialized, "", "    ")
 		rw.WriteHeader(ErrMetricWriterNotInitialized.Code)
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -261,7 +285,12 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Log.Warn("can not close body", zap.Error(err))
+		}
+	}(r.Body)
 	err := h.mWriter.AppendMetric(mt)
 	if err != nil {
 		logger.Log.Debug("can not add metric", zap.Error(err))
@@ -295,7 +324,10 @@ func (h *Handler) JSONUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	} else {
 		logger.Log.Info("Marshaling ok - sending respinse with status 200")
 		rw.WriteHeader(http.StatusOK)
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 	}
 
 }
@@ -328,7 +360,10 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mReader == nil {
 		resp, _ := json.MarshalIndent(ErrMetricReaderNotInitialized, "", "    ")
 		rw.WriteHeader(ErrMetricReaderNotInitialized.Code)
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -343,7 +378,12 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Log.Warn("can not close body", zap.Error(err))
+		}
+	}(r.Body)
 	mt, err := h.mReader.GetMetricByName(metric.ID, metric.MType)
 	if err != nil {
 		logger.Log.Info("metric not found", zap.Error(err))
@@ -357,7 +397,10 @@ func (h *Handler) JSONGetHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rw.WriteHeader(http.StatusOK)
-	rw.Write(resp)
+	_, err = rw.Write(resp)
+	if err != nil {
+		return
+	}
 }
 
 // DBPingHandler проверяет доступность соединения с базой данных.
@@ -372,7 +415,10 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 	if h.mDBHandler == nil {
 		resp, _ := json.MarshalIndent(ErrMetricDBHandlerNotInitialized, "", "    ")
 		rw.WriteHeader(ErrMetricDBHandlerNotInitialized.Code)
-		rw.Write(resp)
+		_, err := rw.Write(resp)
+		if err != nil {
+			return
+		}
 		return
 	}
 
@@ -383,7 +429,10 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rw.WriteHeader(http.StatusOK)
-	rw.Write([]byte(""))
+	_, err = rw.Write([]byte(""))
+	if err != nil {
+		return
+	}
 }
 
 // MultipleUpdateHandler обрабатывает пакетное обновление метрик, переданных массивом JSON.
@@ -411,7 +460,12 @@ func (h *Handler) DBPingHandler(rw http.ResponseWriter, r *http.Request) {
 //   - 500 Internal Server Error: внутренняя ошибка.
 func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			logger.Log.Warn("can not close body", zap.Error(err))
+		}
+	}(r.Body)
 
 	if h.mWriter == nil {
 		rw.WriteHeader(ErrMetricWriterNotInitialized.Code)

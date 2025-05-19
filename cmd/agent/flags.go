@@ -18,17 +18,20 @@ var (
 )
 
 var (
-	version  = "0.1.15"
+	version  = "0.1.20"
 	progName = "Fuonder's ya-practicum client"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
 
 var usage = func() {
-	fmt.Fprintf(flag.CommandLine.Output(), "%s\nSource code:\t%s\nVersion:\t%s\nUsage of %s:\n",
+	_, err := fmt.Fprintf(flag.CommandLine.Output(), "%s\nSource code:\t%s\nVersion:\t%s\nUsage of %s:\n",
 		progName,
 		source,
 		version,
 		progName)
+	if err != nil {
+		return
+	}
 	flag.PrintDefaults()
 }
 

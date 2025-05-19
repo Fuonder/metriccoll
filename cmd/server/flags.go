@@ -13,17 +13,20 @@ import (
 )
 
 var (
-	version  = "0.1.15"
+	version  = "0.1.20"
 	progName = "Fuonder's ya-practicum server"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
 
 var usage = func() {
-	fmt.Fprintf(flag.CommandLine.Output(), "%s\nSource code:\t%s\nVersion:\t%s\nUsage of %s:\n",
+	_, err := fmt.Fprintf(flag.CommandLine.Output(), "%s\nSource code:\t%s\nVersion:\t%s\nUsage of %s:\n",
 		progName,
 		source,
 		version,
 		progName)
+	if err != nil {
+		return
+	}
 	flag.PrintDefaults()
 }
 
@@ -117,7 +120,12 @@ func checkPathWritable(path string) error {
 			if err != nil {
 				return fmt.Errorf("can not create file \"%s\": %w", path, err)
 			}
-			defer file.Close()
+			defer func(file *os.File) {
+				err := file.Close()
+				if err != nil {
+					fmt.Printf("failed to close file \"%s\": %v\n", path, err)
+				}
+			}(file)
 		} else {
 			return fmt.Errorf("can not get information about path \"%s\": %w", path, err)
 		}
@@ -127,7 +135,12 @@ func checkPathWritable(path string) error {
 	if err != nil {
 		return fmt.Errorf("can not open file in Write mode: %w", err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Printf("failed to close file \"%s\": %v\n", path, err)
+		}
+	}(file)
 
 	return nil
 }
