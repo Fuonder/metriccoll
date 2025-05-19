@@ -292,8 +292,10 @@ func TestJSONHandling(t *testing.T) {
 	require.NoError(t, err)
 
 	err = cipherManager.LoadPrivateKey(FlagsOptions.CryptoKey)
-
 	require.NoError(t, err)
+	err = cipherManager.LoadCertificate("../agent/server.crt")
+	require.NoError(t, err)
+
 	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey)
 	gaugeInitValue := 1.0
 	counterInitValue := int64(1)
@@ -317,13 +319,9 @@ func TestJSONHandling(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 
 			require.NoError(t, err)
-			resp, stringResp := testJSONRequest(t, ts, test.method, test.contentType, test.url, []byte(test.body))
-			//defer func(Body io.ReadCloser) {
-			//	err := Body.Close()
-			//	if err != nil {
-			//		fmt.Printf("can not close body: %s\n", err)
-			//	}
-			//}(resp.Body)
+			ciphertext, err := cipherManager.Cipher([]byte(test.body))
+			require.NoError(t, err)
+			resp, stringResp := testJSONRequest(t, ts, test.method, test.contentType, test.url, ciphertext)
 			defer resp.Body.Close()
 			require.Equal(t, test.want.statusCode, resp.StatusCode)
 			if !test.want.err {

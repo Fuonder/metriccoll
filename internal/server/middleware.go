@@ -203,6 +203,10 @@ func (h *Handler) DecryptionMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		defer r.Body.Close()
+		if len(ciphertext) == 0 {
+			next.ServeHTTP(rw, r)
+			return
+		}
 
 		plaintext, err := h.cipherManager.Decrypt(ciphertext)
 		if err != nil {

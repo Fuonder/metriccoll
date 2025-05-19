@@ -18,8 +18,8 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate go run ../buildgen/genBuildInfo.go
-//go:generate go run ../buildgen/genCertificates.go
+//go:generate go run ../generator/buildinfo/genBuildInfo.go
+//go:generate go run ../generator/certificates/genCertificates.go
 
 func main() {
 	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
