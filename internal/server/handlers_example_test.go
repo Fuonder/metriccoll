@@ -35,7 +35,7 @@ func ExampleHandler_RootHandler() {
 		{ID: "Frees", MType: "gauge", Value: models.Float64Ptr(2303)},
 		{ID: "LastGC", MType: "gauge", Value: models.Float64Ptr(1745266266262774500)}})
 
-	h := NewHandler(mockReader, nil, nil, nil, "")
+	h := NewHandler(mockReader, nil, nil, nil, nil, "")
 
 	r := chi.NewRouter()
 	r.Get("/", h.RootHandler)
@@ -60,7 +60,7 @@ func ExampleHandler_DBPingHandler() {
 	mockDBHandler := storage.NewMockMetricDatabaseHandler(ctrl)
 	mockDBHandler.EXPECT().CheckConnection().Return(nil)
 
-	h := NewHandler(nil, nil, nil, mockDBHandler, "")
+	h := NewHandler(nil, nil, nil, mockDBHandler, nil, "")
 
 	r := chi.NewRouter()
 	r.Get("/ping", h.DBPingHandler)
@@ -109,7 +109,7 @@ func ExampleHandler_MultipleUpdateHandler() {
 		mockReader.EXPECT().GetMetricByName(mt.ID, mt.MType).Return(mt, nil)
 	}
 
-	h := NewHandler(mockReader, mockWriter, nil, nil, "")
+	h := NewHandler(mockReader, mockWriter, nil, nil, nil, "")
 
 	r := chi.NewRouter()
 	r.Post("/updates/", h.MultipleUpdateHandler)
@@ -230,7 +230,7 @@ func ExampleHandler_ValueHandler() {
 			Value: &gaugeValue,
 		}, nil)
 
-	handler := NewHandler(mockReader, nil, nil, nil, "")
+	handler := NewHandler(mockReader, nil, nil, nil, nil, "")
 
 	r := chi.NewRouter()
 	r.Get("/value/{mType}/{mName}", handler.ValueHandler)
@@ -261,7 +261,7 @@ func ExampleHandler_UpdateHandler() {
 		}).
 		Return(nil)
 
-	handler := NewHandler(nil, mockWriter, nil, nil, "")
+	handler := NewHandler(nil, mockWriter, nil, nil, nil, "")
 
 	r := chi.NewRouter()
 	r.Post("/update/{mType}/{mName}/{mValue}", handler.UpdateHandler)
@@ -298,7 +298,7 @@ func ExampleHandler_JSONUpdateHandler() {
 		GetMetricByName("HeapAlloc", "gauge").
 		Return(metric, nil)
 
-	handler := NewHandler(mockReader, mockWriter, nil, nil, "")
+	handler := NewHandler(mockReader, mockWriter, nil, nil, nil, "")
 
 	body, _ := json.Marshal(metric)
 	req := httptest.NewRequest(http.MethodPost, "/update/", bytes.NewBuffer(body))
@@ -331,7 +331,7 @@ func ExampleHandler_JSONGetHandler() {
 		GetMetricByName("HeapAlloc", "gauge").
 		Return(metric, nil)
 
-	handler := NewHandler(mockReader, nil, nil, nil, "")
+	handler := NewHandler(mockReader, nil, nil, nil, nil, "")
 
 	requestBody, _ := json.Marshal(models.Metrics{
 		ID:    "HeapAlloc",

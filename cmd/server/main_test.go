@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -155,7 +156,13 @@ func TestMetricRouter(t *testing.T) {
 	require.NoError(t, err)
 	//dbSettings := "postgres://videos:12345678@localhost:5432/videos?sslmode=disable"
 	//dbStorage, _ := storage.NewDatabase(dbSettings)
-	h := server.NewHandler(ms, ms, ms, nil, FlagsOptions.HashKey)
+	cipherManager, err := certmanager.NewCertManager()
+	require.NoError(t, err)
+
+	err = cipherManager.LoadPrivateKey("../../certs/server.key")
+	require.NoError(t, err)
+
+	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
 	defer ts.Close()
@@ -281,10 +288,18 @@ func TestJSONHandling(t *testing.T) {
 	//	"disable")
 	//dbSettings := "postgres://videos:12345678@localhost:5432/videos?sslmode=disable"
 	//dbStorage, _ := storage.NewDatabase(dbSettings)
-	h := server.NewHandler(ms, ms, ms, nil, FlagsOptions.HashKey)
+	cipherManager, err := certmanager.NewCertManager()
+	require.NoError(t, err)
+
+	err = cipherManager.LoadPrivateKey("../../certs/server.key")
+	require.NoError(t, err)
+	err = cipherManager.LoadCertificate("../../certs/server.crt")
+	require.NoError(t, err)
+
+	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey)
 	gaugeInitValue := 1.0
 	counterInitValue := int64(1)
-	err := ms.AppendMetric(models.Metrics{
+	err = ms.AppendMetric(models.Metrics{
 		ID:    "gMetric",
 		MType: "gauge",
 		Value: &gaugeInitValue,
@@ -304,13 +319,9 @@ func TestJSONHandling(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 
 			require.NoError(t, err)
-			resp, stringResp := testJSONRequest(t, ts, test.method, test.contentType, test.url, []byte(test.body))
-			//defer func(Body io.ReadCloser) {
-			//	err := Body.Close()
-			//	if err != nil {
-			//		fmt.Printf("can not close body: %s\n", err)
-			//	}
-			//}(resp.Body)
+			ciphertext, err := cipherManager.Cipher([]byte(test.body))
+			require.NoError(t, err)
+			resp, stringResp := testJSONRequest(t, ts, test.method, test.contentType, test.url, ciphertext)
 			defer resp.Body.Close()
 			require.Equal(t, test.want.statusCode, resp.StatusCode)
 			if !test.want.err {
