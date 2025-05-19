@@ -296,7 +296,7 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
 			SetBody(cBody).
 			Post(remoteURL)
 	} else {
-		logger.Log.Info("Sending batch")
+		logger.Log.Info("Sending batch", zap.String("URL", remoteURL))
 		resp, err = client.R().
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
