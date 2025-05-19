@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -18,6 +19,7 @@ import (
 )
 
 //go:generate go run ../buildgen/genBuildInfo.go
+//go:generate go run ../buildgen/genCertificates.go
 
 func main() {
 	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
@@ -25,7 +27,7 @@ func main() {
 
 	err := parseFlags()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error while parsing flags: %v", err)
 	}
 	if err := logger.Initialize(FlagsOptions.LogLevel); err != nil {
 		panic(fmt.Errorf("method run: %v", err))
@@ -65,6 +67,15 @@ func run() error {
 
 	dbSettings := FlagsOptions.DatabaseDSN
 
+	cipherManager, err := certmanager.NewCertManager()
+	if err != nil {
+		return err
+	}
+	err = cipherManager.LoadPrivateKey(FlagsOptions.CryptoKey)
+	if err != nil {
+		return err
+	}
+
 	dbConnection, err := database.NewPSQLConnection(ctx, dbSettings)
 	if err != nil {
 		logger.Log.Warn("Cannot connect to db")
@@ -73,7 +84,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil, FlagsOptions.HashKey)
+		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil, cipherManager, FlagsOptions.HashKey)
 	} else {
 		logger.Log.Info("Connected to db")
 		err := dbConnection.CreateTablesContext(ctx)
@@ -85,7 +96,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage, FlagsOptions.HashKey)
+		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage, cipherManager, FlagsOptions.HashKey)
 		defer func(dbStorage *database.DBStorage) {
 			err := dbStorage.Close()
 			if err != nil {
@@ -106,6 +117,7 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
 	router.Use(h.HashMiddleware)
+	router.Use(h.DecryptionMiddleware)
 
 	router.Mount("/debug/pprof", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.DefaultServeMux.ServeHTTP(w, r)

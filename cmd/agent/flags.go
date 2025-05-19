@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/validation"
 	"os"
 	"strconv"
 	"strings"
@@ -18,7 +19,7 @@ var (
 )
 
 var (
-	version  = "0.1.20"
+	version  = "0.1.21"
 	progName = "Fuonder's ya-practicum client"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -67,15 +68,24 @@ type CliOptions struct {
 	PollInterval   time.Duration
 	HashKey        string
 	RateLimit      int64
+	CryptoKey      string
 }
 
 func (o *CliOptions) String() string {
-	return fmt.Sprintf("netAddr:%s, reportInterval:%s, pollInterval:%s, hashKey:%s, rateLimit: %d",
+	return fmt.Sprintf(
+		"netAddr:%s, "+
+			"reportInterval:%s, "+
+			"pollInterval:%s, "+
+			"hashKey:%s, "+
+			"rateLimit: %d, "+
+			"CryptoKey: %s",
 		o.NetAddr.String(),
 		o.ReportInterval,
 		o.PollInterval,
 		o.HashKey,
-		o.RateLimit)
+		o.RateLimit,
+		o.CryptoKey,
+	)
 }
 
 var (
@@ -87,6 +97,7 @@ var (
 		PollInterval:   2 * time.Second,
 		HashKey:        "",
 		RateLimit:      1,
+		CryptoKey:      "./server.crt",
 	}
 	netAddr = &NetAddress{
 		IPAddr: "localhost",
@@ -97,24 +108,6 @@ var (
 	rate      int64 = 1
 )
 
-func validateIntervalString(interval string) error {
-	i, err := strconv.Atoi(interval)
-	if err != nil {
-		return fmt.Errorf("malformed interval value: \"%s\": %w", interval, err)
-	}
-	if i <= 0 {
-		return fmt.Errorf("interval out of range: %s", interval)
-	}
-	return nil
-}
-
-func validateIntervalInt64(interval int64) error {
-	if interval <= 0 {
-		return fmt.Errorf("interval out of range: %d", interval)
-	}
-	return nil
-}
-
 func parseFlags() error {
 	flag.Usage = usage
 	flag.Var(netAddr, "a", "ip and port of server in format <ip>:<port>")
@@ -122,6 +115,7 @@ func parseFlags() error {
 	flag.Int64Var(&rInterval, "r", 10, "interval of reports in secs")
 	flag.StringVar(&CliOpt.HashKey, "k", "", "key for hash")
 	flag.Int64Var(&rate, "l", 1, "rate limit")
+	flag.StringVar(&CliOpt.CryptoKey, "crypto-key", "./server.crt", "Path to private key file")
 
 	flag.Parse()
 	var err error
@@ -136,7 +130,7 @@ func parseFlags() error {
 	}
 
 	if envRInterval := os.Getenv("REPORT_INTERVAL"); envRInterval != "" {
-		err = validateIntervalString(envRInterval)
+		err = validation.ValidateNonNegativeString(envRInterval)
 		if err != nil {
 			return fmt.Errorf("REPORT_INTERVAL: %w", err)
 		}
@@ -145,7 +139,7 @@ func parseFlags() error {
 			return fmt.Errorf("REPORT_INTERVAL: %w", err)
 		}
 	} else {
-		err = validateIntervalInt64(rInterval)
+		err = validation.ValidateNonNegativeInt64(rInterval)
 		if err != nil {
 			return fmt.Errorf("flag -r: %w", err)
 		}
@@ -153,7 +147,7 @@ func parseFlags() error {
 	}
 
 	if envPInterval := os.Getenv("POLL_INTERVAL"); envPInterval != "" {
-		err = validateIntervalString(envPInterval)
+		err = validation.ValidateNonNegativeString(envPInterval)
 		if err != nil {
 			return fmt.Errorf("POLL_INTERVAL: %w", err)
 		}
@@ -162,7 +156,7 @@ func parseFlags() error {
 			return fmt.Errorf("POLL_INTERVAL: %w", err)
 		}
 	} else {
-		err = validateIntervalInt64(pInterval)
+		err = validation.ValidateNonNegativeInt64(pInterval)
 		if err != nil {
 			return fmt.Errorf("flag -p: %w", err)
 		}
@@ -174,21 +168,27 @@ func parseFlags() error {
 	}
 
 	if envRateLimit := os.Getenv("RATE_LIMIT"); envRateLimit != "" {
-		err = validateIntervalString(envRateLimit)
+		err = validation.ValidateNonNegativeString(envRateLimit)
 		if err != nil {
 			return fmt.Errorf("RATE_LIMIT: %w", err)
 		}
 
-		//CliOpt.RateLimit, err = time.ParseDuration(envRateLimit + "s")
-		//if err != nil {
-		//	return fmt.Errorf("RATE_LIMIT: %w", err)
-		//}
 	} else {
-		err = validateIntervalInt64(rate)
+		err = validation.ValidateNonNegativeInt64(rate)
 		if err != nil {
 			return fmt.Errorf("flag -l: %w", err)
 		}
 		CliOpt.RateLimit = rate
+	}
+
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		if validation.CheckFilePresence(envCryptoKey) {
+			CliOpt.CryptoKey = envCryptoKey
+		}
+	} else {
+		if !validation.CheckFilePresence(CliOpt.CryptoKey) {
+			return fmt.Errorf("invalid CRYPTO_KEY value: file '%v' does not exists", CliOpt.CryptoKey)
+		}
 	}
 
 	return nil

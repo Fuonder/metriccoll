@@ -4,16 +4,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/validation"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/Fuonder/metriccoll.git/internal/storage"
 )
 
 var (
-	version  = "0.1.20"
+	version  = "0.1.21"
 	progName = "Fuonder's ya-practicum server"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -70,6 +69,7 @@ type Flags struct {
 	Restore         bool
 	DatabaseDSN     string
 	HashKey         string
+	CryptoKey       string
 }
 
 func (f *Flags) String() string {
@@ -79,7 +79,8 @@ func (f *Flags) String() string {
 		"FileStoragePath: %s, "+
 		"Restore: %v, "+
 		"DatabaseDSN: %s, "+
-		"HashKey: %s",
+		"HashKey: %s, "+
+		"CryptoKey: %s",
 		f.NetAddress.String(),
 		f.LogLevel,
 		f.StoreInterval.String(),
@@ -87,62 +88,8 @@ func (f *Flags) String() string {
 		f.Restore,
 		f.DatabaseDSN,
 		f.HashKey,
+		f.CryptoKey,
 	)
-}
-
-func validateIntervalString(interval string) error {
-	i, err := strconv.Atoi(interval)
-	if err != nil {
-		return fmt.Errorf("malformed interval value: \"%s\": %w", interval, err)
-	}
-	if i < 0 {
-		return fmt.Errorf("interval out of range: %s", interval)
-	}
-	return nil
-}
-
-func validateIntervalInt64(interval int64) error {
-	if interval < 0 {
-		return fmt.Errorf("interval out of range: %d", interval)
-	}
-	return nil
-}
-
-func checkPathWritable(path string) error {
-	if path == "" {
-		return fmt.Errorf("path can not be empty")
-	}
-
-	_, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			file, err := os.Create(path)
-			if err != nil {
-				return fmt.Errorf("can not create file \"%s\": %w", path, err)
-			}
-			defer func(file *os.File) {
-				err := file.Close()
-				if err != nil {
-					fmt.Printf("failed to close file \"%s\": %v\n", path, err)
-				}
-			}(file)
-		} else {
-			return fmt.Errorf("can not get information about path \"%s\": %w", path, err)
-		}
-	}
-
-	file, err := os.OpenFile(path, os.O_RDWR, storage.OsAllRw)
-	if err != nil {
-		return fmt.Errorf("can not open file in Write mode: %w", err)
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			fmt.Printf("failed to close file \"%s\": %v\n", path, err)
-		}
-	}(file)
-
-	return nil
 }
 
 var (
@@ -156,6 +103,7 @@ var (
 		Restore:         true,
 		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
 		HashKey:         "",
+		CryptoKey:       "./server.key",
 	}
 
 	netAddr = &netAddress{
@@ -174,6 +122,7 @@ func parseFlags() error {
 	flag.BoolVar(&FlagsOptions.Restore, "r", true, "load metrics from dump on start")
 	flag.StringVar(&FlagsOptions.DatabaseDSN, "d", "", "Database DSN")
 	flag.StringVar(&FlagsOptions.HashKey, "k", "", "Hash key")
+	flag.StringVar(&FlagsOptions.CryptoKey, "crypto-key", "./server.key", "Path to private key file")
 
 	flag.Parse()
 
@@ -187,7 +136,7 @@ func parseFlags() error {
 		FlagsOptions.LogLevel = envLogLevel
 	}
 	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
-		err := validateIntervalString(envStoreInterval)
+		err := validation.ValidatePositiveString(envStoreInterval)
 		if err != nil {
 			return fmt.Errorf("invalid STORE_INTERVAL value: %w", err)
 		}
@@ -196,7 +145,7 @@ func parseFlags() error {
 			return fmt.Errorf("invalid STORE_INTERVAL value: %w", err)
 		}
 	} else {
-		err := validateIntervalInt64(sIntervalInt64)
+		err := validation.ValidatePositiveInt64(sIntervalInt64)
 		if err != nil {
 			return fmt.Errorf("flag -i: %w", err)
 		}
@@ -204,13 +153,13 @@ func parseFlags() error {
 	}
 
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
-		err := checkPathWritable(envFileStoragePath)
+		err := validation.CheckPathWritable(envFileStoragePath)
 		if err != nil {
 			return fmt.Errorf("invalid FILE_STORAGE_PATH value: %w", err)
 		}
 		FlagsOptions.FileStoragePath = envFileStoragePath
 	} else {
-		err := checkPathWritable(FlagsOptions.FileStoragePath)
+		err := validation.CheckPathWritable(FlagsOptions.FileStoragePath)
 		if err != nil {
 			return fmt.Errorf("invalid FILE_STORAGE_PATH value: %w", err)
 		}
@@ -230,5 +179,16 @@ func parseFlags() error {
 	if envHashKey := os.Getenv("KEY"); envHashKey != "" {
 		FlagsOptions.HashKey = envHashKey
 	}
+
+	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
+		if validation.CheckFilePresence(envCryptoKey) {
+			FlagsOptions.CryptoKey = envCryptoKey
+		}
+	} else {
+		if !validation.CheckFilePresence(FlagsOptions.CryptoKey) {
+			return fmt.Errorf("invalid CRYPTO_KEY value: file '%s' does not exists", FlagsOptions.CryptoKey)
+		}
+	}
+
 	return nil
 }
