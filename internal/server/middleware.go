@@ -194,3 +194,27 @@ func (h *Handler) WithHashing(next http.HandlerFunc) http.HandlerFunc {
 		next.ServeHTTP(hw, r)
 	}
 }
+
+func (h *Handler) DecryptionMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		ciphertext, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(rw, "Failed to read body", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+		if len(ciphertext) == 0 {
+			next.ServeHTTP(rw, r)
+			return
+		}
+
+		plaintext, err := h.cipherManager.Decrypt(ciphertext)
+		if err != nil {
+			http.Error(rw, "Failed to decrypt body", http.StatusInternalServerError)
+			return
+		}
+		r.Body = io.NopCloser(bytes.NewReader(plaintext))
+		r.ContentLength = int64(len(plaintext))
+		next.ServeHTTP(rw, r)
+	})
+}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"net/http"
 	"sync"
 	"time"
@@ -41,20 +42,23 @@ func NewTimeIntervals(rInterval time.Duration, pInterval time.Duration) *TimeInt
 }
 
 type MemoryCollector struct {
-	st       storage.Collection
-	remoteIP string
-	hashKey  string
-	jobsCh   chan []byte
-	tData    TimeIntervals
+	st            storage.Collection
+	remoteIP      string
+	hashKey       string
+	cipherManager certmanager.TLSCipher
+	jobsCh        chan []byte
+	tData         TimeIntervals
+	wg            sync.WaitGroup
 }
 
-func NewMemoryCollector(stArg storage.Collection, tData *TimeIntervals, jobsCh chan []byte) *MemoryCollector {
+func NewMemoryCollector(stArg storage.Collection, tData *TimeIntervals, jobsCh chan []byte, cipherManager certmanager.TLSCipher) *MemoryCollector {
 	logger.Log.Debug("Creating Memory Collector")
 	c := &MemoryCollector{st: stArg,
-		remoteIP: "",
-		hashKey:  "",
-		jobsCh:   jobsCh,
-		tData:    *tData}
+		remoteIP:      "",
+		hashKey:       "",
+		cipherManager: cipherManager,
+		jobsCh:        jobsCh,
+		tData:         *tData}
 	return c
 }
 
@@ -129,77 +133,50 @@ func getCPUUtilization() ([]models.Metrics, error) {
 }
 
 func (c *MemoryCollector) collectNewMetrics(ctx context.Context) ([]byte, error) {
-
 	select {
 	case <-ctx.Done():
-		return []byte{}, ctx.Err()
+		return nil, ctx.Err()
 	default:
 		time.Sleep(c.tData.reportInterval)
-		var allMetrics []models.Metrics
-
-		mCPUUtilization, err := getCPUUtilization()
+		cpuMetrics, err := getCPUUtilization()
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-
-		allMetrics = append(allMetrics, mCPUUtilization...)
-
-		mMemory, err := getMemoryInfo()
+		memMetrics, err := getMemoryInfo()
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
-
-		allMetrics = append(allMetrics, mMemory...)
-
-		body, err := json.Marshal(allMetrics)
-
-		if err != nil {
-			return []byte{}, err
-		}
-		return body, nil
+		all := append(cpuMetrics, memMetrics...)
+		return json.Marshal(all)
 	}
-
 }
 
 func (c *MemoryCollector) collectOriginalMetrics(ctx context.Context) ([]byte, error) {
 	select {
 	case <-ctx.Done():
 		logger.Log.Info("Stopping collection")
-		return []byte{}, ctx.Err()
+		return nil, ctx.Err()
 	default:
 		time.Sleep(c.tData.reportInterval)
-
-		gMetrics := c.st.GetGaugeList()
-		cMetrics := c.st.GetCounterList()
-		allMetrics := []models.Metrics{}
-
-		for name, value := range cMetrics {
-			mt := models.Metrics{
-				ID:    name,
+		var all []models.Metrics
+		for k, v := range c.st.GetCounterList() {
+			val := int64(v)
+			all = append(all, models.Metrics{
+				ID:    k,
 				MType: "counter",
-				Delta: (*int64)(&value),
-				Value: nil,
-			}
-			allMetrics = append(allMetrics, mt)
+				Delta: &val,
+			})
 		}
-
-		for name, value := range gMetrics {
-			mt := models.Metrics{
-				ID:    name,
+		for k, v := range c.st.GetGaugeList() {
+			val := float64(v)
+			all = append(all, models.Metrics{
+				ID:    k,
 				MType: "gauge",
-				Delta: nil,
-				Value: (*float64)(&value),
-			}
-			allMetrics = append(allMetrics, mt)
+				Value: &val,
+			})
 		}
-
-		body, err := json.Marshal(allMetrics)
-		if err != nil {
-			return []byte{}, fmt.Errorf("failed to marshal request body: %w", err)
-		}
-		return body, nil
+		return json.Marshal(all)
 	}
-
 }
 
 func (c *MemoryCollector) Collect(ctx context.Context, cancel context.CancelFunc) error {
@@ -212,6 +189,9 @@ func (c *MemoryCollector) Collect(ctx context.Context, cancel context.CancelFunc
 			data, err := c.collectOriginalMetrics(ctx)
 			if err != nil {
 				cancel()
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
 				return fmt.Errorf("collect orig: %v", err)
 			}
 			c.jobsCh <- data
@@ -223,6 +203,9 @@ func (c *MemoryCollector) Collect(ctx context.Context, cancel context.CancelFunc
 			data, err := c.collectNewMetrics(ctx)
 			if err != nil {
 				cancel()
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
 				return fmt.Errorf("collect new: %v", err)
 			}
 			c.jobsCh <- data
@@ -238,19 +221,18 @@ func (c *MemoryCollector) Collect(ctx context.Context, cancel context.CancelFunc
 }
 
 func (c *MemoryCollector) RunWorkers(rateLimit int64) error {
-	var wg sync.WaitGroup
 	g := new(errgroup.Group)
 
-	for i := range int(rateLimit) {
-		wg.Add(1)
+	for i := 0; i < int(rateLimit); i++ {
+		c.wg.Add(1)
+		workerID := i
 		g.Go(func() error {
-			err := c.worker(i, c.jobsCh, &wg)
-			if err != nil {
-				return err
-			}
-			return nil
+			defer c.wg.Done()
+			return c.worker(workerID, c.jobsCh)
+
 		})
 	}
+
 	if err := g.Wait(); err != nil {
 		logger.Log.Debug("workers exited with error", zap.Error(err))
 		return fmt.Errorf("method RunWorkers: %v", err)
@@ -258,53 +240,44 @@ func (c *MemoryCollector) RunWorkers(rateLimit int64) error {
 	return nil
 }
 
+func (c *MemoryCollector) WaitWorkers() {
+	c.wg.Wait()
+}
+
 func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
 	if remoteURL == "" {
 		remoteURL = "http://" + c.remoteIP + "/updates/"
 	}
-
 	client := resty.New()
-
 	cBody, err := middleware.GzipCompress(packetBody)
 	if err != nil {
-		return fmt.Errorf("failed to compress request body: %w", err)
+		return fmt.Errorf("compress failed: %w", err)
+	}
+	cBody, err = c.cipherManager.Cipher(cBody)
+	if err != nil {
+		return fmt.Errorf("cipher failed: %w", err)
 	}
 
-	var resp *resty.Response
+	req := client.R().
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("Accept-Encoding", "gzip").
+		SetBody(cBody)
 
 	if c.hashKey != "" {
-		logger.Log.Info("Creating HMAC")
 		h := hmac.New(sha256.New, []byte(c.hashKey))
 		h.Write(cBody)
-		s := h.Sum(nil)
-		logger.Log.Info("HASH", zap.String("HASH", base64.URLEncoding.EncodeToString(s)))
-		logger.Log.Info("Writing HMAC")
-		logger.Log.Info("Sending batch with HMAC")
-		resp, err = client.R().
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Content-Encoding", "gzip").
-			SetHeader("Accept-Encoding", "gzip").
-			SetHeader("HashSHA256", base64.URLEncoding.EncodeToString(s)).
-			SetBody(cBody).
-			Post(remoteURL)
-	} else {
-		logger.Log.Info("Sending batch")
-		resp, err = client.R().
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Content-Encoding", "gzip").
-			SetHeader("Accept-Encoding", "gzip").
-			SetBody(cBody).
-			Post(remoteURL)
+		hash := base64.URLEncoding.EncodeToString(h.Sum(nil))
+		req.SetHeader("HashSHA256", hash)
 	}
 
+	resp, err := req.Post(remoteURL)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrCouldNotSendRequest, err)
 	}
-	if resp.StatusCode() != 200 {
-		logger.Log.Info("", zap.Any("Body", string(resp.Body())))
+	if resp.StatusCode() != http.StatusOK {
 		return ErrWrongResponseStatus
 	}
-	logger.Log.Info("Request sent successfully")
 	return nil
 }
 
@@ -312,28 +285,18 @@ func (c *MemoryCollector) CheckConnection() error {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-
 	resp, err := client.Get("http://" + c.remoteIP)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server: %w", err)
 	}
-	//defer func(Body io.ReadCloser) {
-	//	err := Body.Close()
-	//	if err != nil {
-	//		logger.Log.Warn("Failed to close body", zap.Error(err))
-	//	}
-	//}(resp.Body)
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("server returned non-OK status: %d", resp.StatusCode)
 	}
-
 	return nil
 }
 
-func (c *MemoryCollector) worker(idx int, jobs <-chan []byte, wg *sync.WaitGroup) error {
-	defer wg.Done()
+func (c *MemoryCollector) worker(idx int, jobs <-chan []byte) error {
 	for job := range jobs {
 		logger.Log.Info("processing job", zap.Int("worker", idx))
 		err := middleware.RetryableWorkerHTTPSend(c.Post, "", job, 3)

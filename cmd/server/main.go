@@ -2,11 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Fuonder/metriccoll.git/internal/logger"
@@ -17,7 +22,8 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate go run ../buildgen/genBuildInfo.go
+//go:generate go run ../generator/buildinfo/genBuildInfo.go
+//go:generate go run ../generator/certificates/genCertificates.go
 
 func main() {
 	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
@@ -25,7 +31,7 @@ func main() {
 
 	err := parseFlags()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error while parsing flags: %v", err)
 	}
 	if err := logger.Initialize(FlagsOptions.LogLevel); err != nil {
 		panic(fmt.Errorf("method run: %v", err))
@@ -65,6 +71,15 @@ func run() error {
 
 	dbSettings := FlagsOptions.DatabaseDSN
 
+	cipherManager, err := certmanager.NewCertManager()
+	if err != nil {
+		return err
+	}
+	err = cipherManager.LoadPrivateKey(FlagsOptions.CryptoKey)
+	if err != nil {
+		return err
+	}
+
 	dbConnection, err := database.NewPSQLConnection(ctx, dbSettings)
 	if err != nil {
 		logger.Log.Warn("Cannot connect to db")
@@ -73,7 +88,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil, FlagsOptions.HashKey)
+		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil, cipherManager, FlagsOptions.HashKey)
 	} else {
 		logger.Log.Info("Connected to db")
 		err := dbConnection.CreateTablesContext(ctx)
@@ -85,7 +100,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage, FlagsOptions.HashKey)
+		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage, cipherManager, FlagsOptions.HashKey)
 		defer func(dbStorage *database.DBStorage) {
 			err := dbStorage.Close()
 			if err != nil {
@@ -94,9 +109,47 @@ func run() error {
 		}(dbStorage)
 	}
 
-	logger.Log.Info("Listening at",
-		zap.String("Addr", netAddr.String()))
-	return http.ListenAndServe(netAddr.String(), metricRouter(handler))
+	srv := &http.Server{
+		Addr:    FlagsOptions.NetAddress.String(),
+		Handler: metricRouter(handler),
+	}
+
+	shutdownCtx, shutdownStop := context.WithCancel(context.Background())
+	defer shutdownStop()
+
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+		sig := <-sigCh
+		logger.Log.Info("Received shutdown signal", zap.String("signal", sig.String()))
+
+		ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctxTimeout); err != nil {
+			logger.Log.Error("HTTP server Shutdown failed", zap.Error(err))
+		}
+
+		// Сохраняем данные, если нужно
+		if handler != nil && handler.HasFileHandler() {
+			logger.Log.Info("Dumping metrics before shutdown...")
+			if err := handler.DumpToFile(); err != nil {
+				logger.Log.Warn("Failed to dump metrics", zap.Error(err))
+			}
+		}
+
+		shutdownStop()
+	}()
+
+	logger.Log.Info("Starting HTTP server", zap.String("addr", srv.Addr))
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("HTTP server ListenAndServe: %w", err)
+	}
+
+	<-shutdownCtx.Done()
+	logger.Log.Info("Server shutdown complete")
+	return nil
 }
 
 func metricRouter(h *server.Handler) chi.Router {
@@ -106,6 +159,7 @@ func metricRouter(h *server.Handler) chi.Router {
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
 	router.Use(h.HashMiddleware)
+	router.Use(h.DecryptionMiddleware)
 
 	router.Mount("/debug/pprof", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.DefaultServeMux.ServeHTTP(w, r)

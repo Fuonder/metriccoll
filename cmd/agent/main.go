@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	memcollector "github.com/Fuonder/metriccoll.git/internal/metrics/MemoryCollector"
 	agentcollection "github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -18,39 +21,50 @@ var (
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
 
-//go:generate go run ../buildgen/genBuildInfo.go
+//go:generate go run ../generator/buildinfo/genBuildInfo.go
 
 func main() {
 	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
 	fmt.Println(bInfo.String())
 
-	if err := logger.Initialize("Info"); err != nil {
+	if err := logger.Initialize("Debug"); err != nil {
 		panic(err)
 	}
 
 	logger.Log.Info("Starting agent")
-
-	mc, err := agentcollection.NewMetricsCollection()
+	err := parseFlags()
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal("error during parsing flags: ", zap.Error(err))
 	}
-
-	err = parseFlags()
-	if err != nil {
-		log.Fatal(err)
-	}
-	logger.Log.Info("parse flags success")
+	logger.Log.Debug("Flags parsed",
+		zap.String("flags", CliOpt.String()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	mc, err := agentcollection.NewMetricsCollection()
+	if err != nil {
+		logger.Log.Fatal("can not create collection:", zap.Error(err))
+	}
+
 	g := new(errgroup.Group)
 
 	jobsCh := make(chan []byte, 10)
-	defer close(jobsCh)
 
 	timeIntervals := memcollector.NewTimeIntervals(CliOpt.ReportInterval, CliOpt.PollInterval)
-	collector := memcollector.NewMemoryCollector(mc, timeIntervals, jobsCh)
+	cipherManger, err := certmanager.NewCertManager()
+	if err != nil {
+		logger.Log.Fatal("can not create cert manager", zap.Error(err))
+	}
+	err = cipherManger.LoadCertificate(CliOpt.CryptoKey)
+	if err != nil {
+		logger.Log.Fatal("can not load certificate", zap.Error(err))
+	}
+
+	collector := memcollector.NewMemoryCollector(mc, timeIntervals, jobsCh, cipherManger)
 
 	err = collector.SetRemoteIP(CliOpt.NetAddr.String())
 	if err != nil {
@@ -63,18 +77,21 @@ func main() {
 	}
 
 	g.Go(func() error {
-		err = collector.Collect(ctx, cancel)
-		if err != nil {
-			return err
-		}
-		return nil
+		err := collector.Collect(ctx, cancel)
+		close(jobsCh)
+		return err
 	})
 
 	g.Go(func() error {
-		err = collector.RunWorkers(CliOpt.RateLimit)
-		if err != nil {
+		return collector.RunWorkers(CliOpt.RateLimit)
+	})
+
+	g.Go(func() error {
+		select {
+		case sig := <-sigCh:
+			logger.Log.Info("got sigterm", zap.String("signal", sig.String()))
 			cancel()
-			return err
+		case <-ctx.Done():
 		}
 		return nil
 	})
@@ -92,4 +109,5 @@ func main() {
 	//	log.Fatal(err)
 	//}
 	//}
+	logger.Log.Info("agent exited gracefully")
 }
