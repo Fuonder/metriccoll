@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -34,6 +35,10 @@ func TestMetrics_updateValues(t *testing.T) {
 			},
 		},
 	}
+	err := os.Setenv("CRYPTO_KEY", "../../certs/server.crt")
+	require.NoError(t, err)
+	err = parseFlags()
+	require.NoError(t, err)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			collection, err := agentcollection.NewMetricsCollection()
