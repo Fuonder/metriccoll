@@ -528,3 +528,14 @@ func (h *Handler) MultipleUpdateHandler(rw http.ResponseWriter, r *http.Request)
 	rw.WriteHeader(http.StatusOK)
 	_, _ = rw.Write(resp)
 }
+
+func (h *Handler) HasFileHandler() bool {
+	return h.mFileHandler != nil
+}
+
+func (h *Handler) DumpToFile() error {
+	if h.mFileHandler == nil {
+		return nil
+	}
+	return h.mFileHandler.DumpMetrics()
+}

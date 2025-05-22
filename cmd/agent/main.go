@@ -11,6 +11,9 @@ import (
 	agentcollection "github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -29,27 +32,27 @@ func main() {
 	}
 
 	logger.Log.Info("Starting agent")
-
-	mc, err := agentcollection.NewMetricsCollection()
-	if err != nil {
-		logger.Log.Fatal("can not create collection:", zap.Error(err))
-	}
-
-	err = parseFlags()
+	err := parseFlags()
 	if err != nil {
 		logger.Log.Fatal("error during parsing flags: ", zap.Error(err))
 	}
-
 	logger.Log.Debug("Flags parsed",
 		zap.String("flags", CliOpt.String()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
+	mc, err := agentcollection.NewMetricsCollection()
+	if err != nil {
+		logger.Log.Fatal("can not create collection:", zap.Error(err))
+	}
+
 	g := new(errgroup.Group)
 
 	jobsCh := make(chan []byte, 10)
-	defer close(jobsCh)
 
 	timeIntervals := memcollector.NewTimeIntervals(CliOpt.ReportInterval, CliOpt.PollInterval)
 	cipherManger, err := certmanager.NewCertManager()
@@ -74,18 +77,21 @@ func main() {
 	}
 
 	g.Go(func() error {
-		err = collector.Collect(ctx, cancel)
-		if err != nil {
-			return err
-		}
-		return nil
+		err := collector.Collect(ctx, cancel)
+		close(jobsCh)
+		return err
 	})
 
 	g.Go(func() error {
-		err = collector.RunWorkers(CliOpt.RateLimit)
-		if err != nil {
+		return collector.RunWorkers(CliOpt.RateLimit)
+	})
+
+	g.Go(func() error {
+		select {
+		case sig := <-sigCh:
+			logger.Log.Info("got sigterm", zap.String("signal", sig.String()))
 			cancel()
-			return err
+		case <-ctx.Done():
 		}
 		return nil
 	})
@@ -103,4 +109,5 @@ func main() {
 	//	log.Fatal(err)
 	//}
 	//}
+	logger.Log.Info("agent exited gracefully")
 }

@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
 	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Fuonder/metriccoll.git/internal/logger"
@@ -105,9 +109,47 @@ func run() error {
 		}(dbStorage)
 	}
 
-	logger.Log.Info("Listening at",
-		zap.String("Addr", FlagsOptions.NetAddress.String()))
-	return http.ListenAndServe(FlagsOptions.NetAddress.String(), metricRouter(handler))
+	srv := &http.Server{
+		Addr:    FlagsOptions.NetAddress.String(),
+		Handler: metricRouter(handler),
+	}
+
+	shutdownCtx, shutdownStop := context.WithCancel(context.Background())
+	defer shutdownStop()
+
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+		sig := <-sigCh
+		logger.Log.Info("Received shutdown signal", zap.String("signal", sig.String()))
+
+		ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctxTimeout); err != nil {
+			logger.Log.Error("HTTP server Shutdown failed", zap.Error(err))
+		}
+
+		// Сохраняем данные, если нужно
+		if handler != nil && handler.HasFileHandler() {
+			logger.Log.Info("Dumping metrics before shutdown...")
+			if err := handler.DumpToFile(); err != nil {
+				logger.Log.Warn("Failed to dump metrics", zap.Error(err))
+			}
+		}
+
+		shutdownStop()
+	}()
+
+	logger.Log.Info("Starting HTTP server", zap.String("addr", srv.Addr))
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("HTTP server ListenAndServe: %w", err)
+	}
+
+	<-shutdownCtx.Done()
+	logger.Log.Info("Server shutdown complete")
+	return nil
 }
 
 func metricRouter(h *server.Handler) chi.Router {
