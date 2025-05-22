@@ -39,7 +39,9 @@ func main() {
 	if err != nil {
 		logger.Log.Fatal("error during parsing flags: ", zap.Error(err))
 	}
-	logger.Log.Info("parse flags success")
+
+	logger.Log.Debug("Flags parsed",
+		zap.String("flags", CliOpt.String()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

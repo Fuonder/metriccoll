@@ -106,8 +106,8 @@ func run() error {
 	}
 
 	logger.Log.Info("Listening at",
-		zap.String("Addr", netAddr.String()))
-	return http.ListenAndServe(netAddr.String(), metricRouter(handler))
+		zap.String("Addr", FlagsOptions.NetAddress.String()))
+	return http.ListenAndServe(FlagsOptions.NetAddress.String(), metricRouter(handler))
 }
 
 func metricRouter(h *server.Handler) chi.Router {
