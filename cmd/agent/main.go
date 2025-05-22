@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"github.com/Fuonder/metriccoll.git/internal/logger"
 	memcollector "github.com/Fuonder/metriccoll.git/internal/metrics/MemoryCollector"
 	agentcollection "github.com/Fuonder/metriccoll.git/internal/storage/agentCollection"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"log"
 )
 
 var (
@@ -18,13 +18,13 @@ var (
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
 
-//go:generate go run ../buildgen/genBuildInfo.go
+//go:generate go run ../generator/buildinfo/genBuildInfo.go
 
 func main() {
 	bInfo := buildinfo.NewBuildInfo(buildVersion, buildCommit, buildDate, GeneratedBuildInfo)
 	fmt.Println(bInfo.String())
 
-	if err := logger.Initialize("Info"); err != nil {
+	if err := logger.Initialize("Debug"); err != nil {
 		panic(err)
 	}
 
@@ -32,14 +32,16 @@ func main() {
 
 	mc, err := agentcollection.NewMetricsCollection()
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal("can not create collection:", zap.Error(err))
 	}
 
 	err = parseFlags()
 	if err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal("error during parsing flags: ", zap.Error(err))
 	}
-	logger.Log.Info("parse flags success")
+
+	logger.Log.Debug("Flags parsed",
+		zap.String("flags", CliOpt.String()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -50,7 +52,16 @@ func main() {
 	defer close(jobsCh)
 
 	timeIntervals := memcollector.NewTimeIntervals(CliOpt.ReportInterval, CliOpt.PollInterval)
-	collector := memcollector.NewMemoryCollector(mc, timeIntervals, jobsCh)
+	cipherManger, err := certmanager.NewCertManager()
+	if err != nil {
+		logger.Log.Fatal("can not create cert manager", zap.Error(err))
+	}
+	err = cipherManger.LoadCertificate(CliOpt.CryptoKey)
+	if err != nil {
+		logger.Log.Fatal("can not load certificate", zap.Error(err))
+	}
+
+	collector := memcollector.NewMemoryCollector(mc, timeIntervals, jobsCh, cipherManger)
 
 	err = collector.SetRemoteIP(CliOpt.NetAddr.String())
 	if err != nil {

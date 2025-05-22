@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"io"
 	"net/http"
 	"strconv"
@@ -37,11 +38,12 @@ var (
 
 // Handler реализует обработчики HTTP-запросов для различных endpoint-ов сервиса метрик.
 type Handler struct {
-	mReader      storage.MetricReader          // Интерфейс для чтения метрик.
-	mWriter      storage.MetricWriter          // Интерфейс для записи метрик.
-	mFileHandler storage.MetricFileHandler     // Интерфейс для работы с файлами.
-	mDBHandler   storage.MetricDatabaseHandler // Интерфейс для взаимодействия с БД.
-	hashKey      string                        // Ключ для проверки/генерации HMAC.
+	mReader       storage.MetricReader          // Интерфейс для чтения метрик.
+	mWriter       storage.MetricWriter          // Интерфейс для записи метрик.
+	mFileHandler  storage.MetricFileHandler     // Интерфейс для работы с файлами.
+	mDBHandler    storage.MetricDatabaseHandler // Интерфейс для взаимодействия с БД.
+	cipherManager certmanager.TLSDecipher       // Интерфейс для дешифровки запрсов
+	hashKey       string                        // Ключ для проверки/генерации HMAC.
 }
 
 // NewHandler создает новый экземпляр Handler и инициализирует зависимости.
@@ -49,13 +51,15 @@ func NewHandler(mReader storage.MetricReader,
 	mWriter storage.MetricWriter,
 	mFileHandler storage.MetricFileHandler,
 	mDBHandler storage.MetricDatabaseHandler,
+	cipherManager certmanager.TLSDecipher,
 	hashKey string) *Handler {
 	h := Handler{
-		mReader:      mReader,
-		mWriter:      mWriter,
-		mFileHandler: mFileHandler,
-		mDBHandler:   mDBHandler,
-		hashKey:      hashKey,
+		mReader:       mReader,
+		mWriter:       mWriter,
+		mFileHandler:  mFileHandler,
+		mDBHandler:    mDBHandler,
+		cipherManager: cipherManager,
+		hashKey:       hashKey,
 	}
 	return &h
 }

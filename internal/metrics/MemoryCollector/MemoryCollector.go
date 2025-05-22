@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/certmanager"
 	"net/http"
 	"sync"
 	"time"
@@ -41,20 +42,22 @@ func NewTimeIntervals(rInterval time.Duration, pInterval time.Duration) *TimeInt
 }
 
 type MemoryCollector struct {
-	st       storage.Collection
-	remoteIP string
-	hashKey  string
-	jobsCh   chan []byte
-	tData    TimeIntervals
+	st            storage.Collection
+	remoteIP      string
+	hashKey       string
+	cipherManager certmanager.TLSCipher
+	jobsCh        chan []byte
+	tData         TimeIntervals
 }
 
-func NewMemoryCollector(stArg storage.Collection, tData *TimeIntervals, jobsCh chan []byte) *MemoryCollector {
+func NewMemoryCollector(stArg storage.Collection, tData *TimeIntervals, jobsCh chan []byte, cipherManager certmanager.TLSCipher) *MemoryCollector {
 	logger.Log.Debug("Creating Memory Collector")
 	c := &MemoryCollector{st: stArg,
-		remoteIP: "",
-		hashKey:  "",
-		jobsCh:   jobsCh,
-		tData:    *tData}
+		remoteIP:      "",
+		hashKey:       "",
+		cipherManager: cipherManager,
+		jobsCh:        jobsCh,
+		tData:         *tData}
 	return c
 }
 
@@ -241,7 +244,7 @@ func (c *MemoryCollector) RunWorkers(rateLimit int64) error {
 	var wg sync.WaitGroup
 	g := new(errgroup.Group)
 
-	for i := range int(rateLimit) {
+	for i := 0; i < int(rateLimit); i++ {
 		wg.Add(1)
 		g.Go(func() error {
 			err := c.worker(i, c.jobsCh, &wg)
@@ -269,7 +272,12 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
 	if err != nil {
 		return fmt.Errorf("failed to compress request body: %w", err)
 	}
-
+	logger.Log.Debug("GZIPED DATA", zap.Any("data", cBody))
+	cBody, err = c.cipherManager.Cipher(cBody)
+	if err != nil {
+		return fmt.Errorf("failed to cipher: %w", err)
+	}
+	logger.Log.Debug("CIPHERED DATA", zap.Any("data", cBody))
 	var resp *resty.Response
 
 	if c.hashKey != "" {
@@ -288,7 +296,7 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
 			SetBody(cBody).
 			Post(remoteURL)
 	} else {
-		logger.Log.Info("Sending batch")
+		logger.Log.Info("Sending batch", zap.String("URL", remoteURL))
 		resp, err = client.R().
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
