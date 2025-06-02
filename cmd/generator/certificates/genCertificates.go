@@ -15,7 +15,11 @@ import (
 	"time"
 )
 
-const salt = "fuonder-salt-1"
+const (
+	salt    = "fuonder-salt-1"
+	CRTPath = "../../certs/server.crt"
+	KEYPath = "../../certs/server.key"
+)
 
 func genSerialNumber() int64 {
 	timestamp := time.Now().Unix()
@@ -33,14 +37,14 @@ func saltToInt64(s string) int64 {
 	return result
 }
 
-func writeCertificates(certPEM bytes.Buffer, keyPEM bytes.Buffer) {
-	err := os.WriteFile("../../certs/server.crt", certPEM.Bytes(), 0644)
+func writeCertificates(certPEM bytes.Buffer, keyPEM bytes.Buffer, CRTPath string, KEYPath string) {
+	err := os.WriteFile(CRTPath, certPEM.Bytes(), 0644)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("server.crt generated")
 
-	err = os.WriteFile("../../certs/server.key", keyPEM.Bytes(), 0644)
+	err = os.WriteFile(KEYPath, keyPEM.Bytes(), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -76,5 +80,5 @@ func main() {
 	var privateKeyPEM bytes.Buffer
 	pem.Encode(&privateKeyPEM, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(privateKey)})
 
-	writeCertificates(certPEM, privateKeyPEM)
+	writeCertificates(certPEM, privateKeyPEM, CRTPath, KEYPath)
 }

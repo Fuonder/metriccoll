@@ -5,7 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/Fuonder/metriccoll.git/internal/validation"
+	"github.com/Fuonder/metriccoll.git/internal/validation/filevalidation"
+	"github.com/Fuonder/metriccoll.git/internal/validation/numericvalidation"
 	"os"
 	"strconv"
 	"strings"
@@ -93,8 +94,81 @@ type Flags struct {
 	CryptoKey       string        `json:"crypto_key"`
 }
 
+func (f *Flags) ReadArgv(cli Flags, sInt int64) error {
+	if cli.NetAddress.isSet {
+		f.NetAddress = cli.NetAddress
+	}
+	if cli.LogLevel != "" {
+		f.LogLevel = cli.LogLevel
+	}
+	if sInt != 0 {
+		err := numericvalidation.ValidatePositiveInt64(sInt)
+		if err != nil {
+			return fmt.Errorf("flag -i: %w", err)
+		}
+		f.StoreInterval = time.Duration(sInt) * time.Second
+	}
+	if cli.FileStoragePath != "" {
+		err := filevalidation.CheckPathWritable(cli.FileStoragePath)
+		if err != nil {
+			return fmt.Errorf("invalid FILE_STORAGE_PATH value: %w", err)
+		}
+		f.FileStoragePath = cli.FileStoragePath
+	}
+	if cli.Restore {
+		f.Restore = cli.Restore
+	}
+	if cli.DatabaseDSN != "" {
+		f.DatabaseDSN = cli.DatabaseDSN
+	}
+	if cli.HashKey != "" {
+		f.HashKey = cli.HashKey
+	}
+	if cli.CryptoKey != "" {
+		if filevalidation.CheckFilePresence(cli.CryptoKey) {
+			f.CryptoKey = cli.CryptoKey
+		}
+	}
+	return nil
+}
+
+func (f *Flags) ReadConfig(from string) error {
+	var cfgFromFile = rawFlags{
+		NetAddress: NetAddress{
+			ipaddr: "localhost",
+			port:   8080},
+		LogLevel:        "debug",
+		StoreInterval:   "300s",
+		FileStoragePath: "./metrics.dump",
+		Restore:         true,
+		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
+		HashKey:         "",
+		CryptoKey:       "./certs/server.key",
+	}
+	if from != "" {
+		if !filevalidation.CheckFilePresence(from) {
+			return fmt.Errorf("config file %q not found", from)
+		}
+		file, err := os.Open(from)
+		if err != nil {
+			return fmt.Errorf("failed to open config file: %w", err)
+		}
+		defer file.Close()
+		if err := json.NewDecoder(file).Decode(&cfgFromFile); err != nil {
+			return fmt.Errorf("failed to decode config: %w", err)
+		}
+	}
+
+	err := f.FromRaw(&cfgFromFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	return nil
+}
+
 func (f *Flags) FromRaw(raw *rawFlags) error {
-	err := validation.ValidatePositiveString(raw.StoreInterval[:len(raw.StoreInterval)-1])
+	err := numericvalidation.ValidatePositiveString(raw.StoreInterval[:len(raw.StoreInterval)-1])
 	if err != nil {
 		return fmt.Errorf("invalid StoreInterval value: %w", err)
 	}
@@ -190,7 +264,7 @@ func (f *Flags) LoadENV() error {
 	}
 
 	if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
-		err = validation.ValidatePositiveString(envStoreInterval)
+		err = numericvalidation.ValidatePositiveString(envStoreInterval)
 		if err != nil {
 			return fmt.Errorf("invalid STORE_INTERVAL value: %w", err)
 		}
@@ -201,7 +275,7 @@ func (f *Flags) LoadENV() error {
 	}
 
 	if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
-		err = validation.CheckPathWritable(envFileStoragePath)
+		err = filevalidation.CheckPathWritable(envFileStoragePath)
 		if err != nil {
 			return fmt.Errorf("invalid FILE_STORAGE_PATH value: %w", err)
 		}
@@ -224,35 +298,22 @@ func (f *Flags) LoadENV() error {
 	}
 
 	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
-		if validation.CheckFilePresence(envCryptoKey) {
+		if filevalidation.CheckFilePresence(envCryptoKey) {
 			f.CryptoKey = envCryptoKey
 		}
 	}
 	return nil
 }
 
-var (
-	sIntervalInt64 int64  = 300
-	configFile     string = ""
-
-	cfgFromFile = rawFlags{
-		NetAddress: NetAddress{
-			ipaddr: "localhost",
-			port:   8080},
-		LogLevel:        "debug",
-		StoreInterval:   "300s",
-		FileStoragePath: "./metrics.dump",
-		Restore:         true,
-		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
-		HashKey:         "",
-		CryptoKey:       "./certs/server.key",
-	}
-	cli          Flags
-	FlagsOptions Flags
-)
+var FlagsOptions Flags
 
 func parseFlags() error {
-	var err error
+	var (
+		err            error
+		sIntervalInt64 int64  = 300
+		configFile     string = ""
+		cli            Flags
+	)
 	flag.Usage = usage
 	flag.Var(&cli.NetAddress, "a", "ip and port of server in format <ip>:<port>")
 	flag.StringVar(&cli.LogLevel, "l", "", "loglevel")
@@ -266,88 +327,27 @@ func parseFlags() error {
 	flag.StringVar(&configFile, "c", "", "Path to config file")
 	flag.Parse()
 
-	/*
-		PRIORITY (least to most): CONFIG -> FLAGS -> ENV (if nothing given should be used default if possible)
-
-		1. Check config present
-		2. Read config file
-		3. If config readed -> write it to FLAGS
-		4. Parse flags
-		5. if flag readed -> write it to FLAGS
-		6. full validation of FlagOptions
-		7. LoadENV
-	*/
-
 	if envConfig := os.Getenv("CONFIG"); envConfig != "" {
 		configFile = envConfig
 	}
 
-	if configFile != "" {
-		if !validation.CheckFilePresence(configFile) {
-			return fmt.Errorf("config file %q not found", configFile)
-		}
-		file, err := os.Open(configFile)
-		if err != nil {
-			return fmt.Errorf("failed to open config file: %w", err)
-		}
-		defer file.Close()
-		if err := json.NewDecoder(file).Decode(&cfgFromFile); err != nil {
-			return fmt.Errorf("failed to decode config: %w", err)
-		}
-	}
-
-	err = FlagsOptions.FromRaw(&cfgFromFile)
+	err = FlagsOptions.ReadConfig(configFile)
 	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		return err
 	}
 
-	// flagOptions now config values or default values.
-	// Next check if clioptions was given, and replace in FlagOptions them.
-	if cli.NetAddress.isSet {
-		FlagsOptions.NetAddress = cli.NetAddress
+	err = FlagsOptions.ReadArgv(cli, sIntervalInt64)
+	if err != nil {
+		return err
 	}
-	if cli.LogLevel != "" {
-		FlagsOptions.LogLevel = cli.LogLevel
-	}
-	if sIntervalInt64 != 0 {
-		err := validation.ValidatePositiveInt64(sIntervalInt64)
-		if err != nil {
-			return fmt.Errorf("flag -i: %w", err)
-		}
-		FlagsOptions.StoreInterval = time.Duration(sIntervalInt64) * time.Second
-	}
-	if cli.FileStoragePath != "" {
-		err := validation.CheckPathWritable(cli.FileStoragePath)
-		if err != nil {
-			return fmt.Errorf("invalid FILE_STORAGE_PATH value: %w", err)
-		}
-		FlagsOptions.FileStoragePath = cli.FileStoragePath
-	}
-	if cli.Restore {
-		FlagsOptions.Restore = cli.Restore
-	}
-	if cli.DatabaseDSN != "" {
-		FlagsOptions.DatabaseDSN = cli.DatabaseDSN
-	}
-	if cli.HashKey != "" {
-		FlagsOptions.HashKey = cli.HashKey
-	}
-	if cli.CryptoKey != "" {
-		if validation.CheckFilePresence(cli.CryptoKey) {
-			FlagsOptions.CryptoKey = cli.CryptoKey
-		}
-	}
-
-	/// Now all defaults/config values was overridden by command line options
-	// Next check env and finally validate
 
 	err = FlagsOptions.LoadENV()
 	if err != nil {
 		return fmt.Errorf("failed to load ENV flags: %w", err)
 	}
 
-	if !validation.CheckFilePresence(FlagsOptions.CryptoKey) {
-		FlagsOptions.CryptoKey, err = validation.FindKEYFile()
+	if !filevalidation.CheckFilePresence(FlagsOptions.CryptoKey) {
+		FlagsOptions.CryptoKey, err = filevalidation.FindKEYFile()
 		if err != nil {
 			return fmt.Errorf("invalid CRYPTO_KEY value: file '%s' does not exists", FlagsOptions.CryptoKey)
 		}

@@ -5,7 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/Fuonder/metriccoll.git/internal/validation"
+	"github.com/Fuonder/metriccoll.git/internal/validation/filevalidation"
+	"github.com/Fuonder/metriccoll.git/internal/validation/numericvalidation"
 	"os"
 	"strconv"
 	"strings"
@@ -106,10 +107,83 @@ func (o *CliOptions) String() string {
 		o.CryptoKey,
 	)
 }
+
+func (o *CliOptions) ReadArgv(argv CliOptions, pInt int64, rInt int64) error {
+	if argv.NetAddr.isSet {
+		o.NetAddr = argv.NetAddr
+	}
+
+	if pInt != 0 {
+		err := numericvalidation.ValidateNonNegativeInt64(pInt)
+		if err != nil {
+			return fmt.Errorf("flag -p: %w", err)
+		}
+		o.PollInterval = time.Duration(pInt) * time.Second
+	}
+
+	if rInt != 0 {
+		err := numericvalidation.ValidateNonNegativeInt64(rInt)
+		if err != nil {
+			return fmt.Errorf("flag -r: %w", err)
+		}
+		o.ReportInterval = time.Duration(rInt) * time.Second
+	}
+
+	if argv.HashKey != "" {
+		o.HashKey = argv.HashKey
+	}
+
+	if argv.RateLimit != 0 {
+		err := numericvalidation.ValidateNonNegativeInt64(argv.RateLimit)
+		if err != nil {
+			return fmt.Errorf("flag -l: %w", err)
+		}
+		o.RateLimit = argv.RateLimit
+	}
+
+	if argv.CryptoKey != "" {
+		o.CryptoKey = argv.CryptoKey
+	}
+	return nil
+}
+
+func (o *CliOptions) ReadConfig(from string) error {
+	var cfgFromFile = rawCliOptions{
+		NetAddr: NetAddress{
+			IPAddr: "localhost",
+			Port:   8080},
+		ReportInterval: "10s",
+		PollInterval:   "2s",
+		HashKey:        "",
+		RateLimit:      1,
+		CryptoKey:      "./certs/server.crt",
+	}
+
+	if from != "" {
+		if !filevalidation.CheckFilePresence(from) {
+			return fmt.Errorf("config file %q not found", from)
+		}
+		file, err := os.Open(from)
+		if err != nil {
+			return fmt.Errorf("failed to open config file: %w", err)
+		}
+		defer file.Close()
+		if err := json.NewDecoder(file).Decode(&cfgFromFile); err != nil {
+			return fmt.Errorf("failed to decode config: %w", err)
+		}
+	}
+
+	err := o.FromRaw(&cfgFromFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+	return nil
+}
+
 func (o *CliOptions) FromRaw(raw *rawCliOptions) error {
 	var err error
 
-	err = validation.ValidateNonNegativeString(raw.ReportInterval[:len(raw.ReportInterval)-1])
+	err = numericvalidation.ValidateNonNegativeString(raw.ReportInterval[:len(raw.ReportInterval)-1])
 	if err != nil {
 		return err
 	}
@@ -118,7 +192,7 @@ func (o *CliOptions) FromRaw(raw *rawCliOptions) error {
 		return err
 	}
 
-	err = validation.ValidateNonNegativeString(raw.PollInterval[:len(raw.PollInterval)-1])
+	err = numericvalidation.ValidateNonNegativeString(raw.PollInterval[:len(raw.PollInterval)-1])
 	if err != nil {
 		return err
 	}
@@ -127,7 +201,7 @@ func (o *CliOptions) FromRaw(raw *rawCliOptions) error {
 		return err
 	}
 
-	err = validation.ValidateNonNegativeInt64(raw.RateLimit)
+	err = numericvalidation.ValidateNonNegativeInt64(raw.RateLimit)
 	if err != nil {
 		return err
 	}
@@ -170,7 +244,7 @@ func (o *CliOptions) LoadENV() error {
 	}
 
 	if envRInterval := os.Getenv("REPORT_INTERVAL"); envRInterval != "" {
-		err = validation.ValidateNonNegativeString(envRInterval)
+		err = numericvalidation.ValidateNonNegativeString(envRInterval)
 		if err != nil {
 			return fmt.Errorf("REPORT_INTERVAL: %w", err)
 		}
@@ -181,7 +255,7 @@ func (o *CliOptions) LoadENV() error {
 	}
 
 	if envPInterval := os.Getenv("POLL_INTERVAL"); envPInterval != "" {
-		err = validation.ValidateNonNegativeString(envPInterval)
+		err = numericvalidation.ValidateNonNegativeString(envPInterval)
 		if err != nil {
 			return fmt.Errorf("POLL_INTERVAL: %w", err)
 		}
@@ -196,7 +270,7 @@ func (o *CliOptions) LoadENV() error {
 	}
 
 	if envRateLimit := os.Getenv("RATE_LIMIT"); envRateLimit != "" {
-		err = validation.ValidateNonNegativeString(envRateLimit)
+		err = numericvalidation.ValidateNonNegativeString(envRateLimit)
 		if err != nil {
 			return fmt.Errorf("RATE_LIMIT: %w", err)
 		}
@@ -207,34 +281,23 @@ func (o *CliOptions) LoadENV() error {
 	}
 
 	if envCryptoKey := os.Getenv("CRYPTO_KEY"); envCryptoKey != "" {
-		if validation.CheckFilePresence(envCryptoKey) {
+		if filevalidation.CheckFilePresence(envCryptoKey) {
 			o.CryptoKey = envCryptoKey
 		}
 	}
 	return nil
 }
 
-var (
-	cfgFromFile = rawCliOptions{
-		NetAddr: NetAddress{
-			IPAddr: "localhost",
-			Port:   8080},
-		ReportInterval: "10s",
-		PollInterval:   "2s",
-		HashKey:        "",
-		RateLimit:      1,
-		CryptoKey:      "./certs/server.crt",
-	}
-	pInterval  int64  = 2
-	rInterval  int64  = 10
-	configFile string = ""
-
-	CliOpt CliOptions
-	cli    CliOptions
-)
+var CliOpt CliOptions
 
 func parseFlags() error {
-	var err error
+	var (
+		err        error
+		cli        CliOptions
+		pInterval  int64  = 2
+		rInterval  int64  = 10
+		configFile string = ""
+	)
 
 	flag.Usage = usage
 	flag.Var(&cli.NetAddr, "a", "ip and port of server in format <ip>:<port>")
@@ -251,59 +314,14 @@ func parseFlags() error {
 		configFile = envConfig
 	}
 
-	if configFile != "" {
-		if !validation.CheckFilePresence(configFile) {
-			return fmt.Errorf("config file %q not found", configFile)
-		}
-		file, err := os.Open(configFile)
-		if err != nil {
-			return fmt.Errorf("failed to open config file: %w", err)
-		}
-		defer file.Close()
-		if err := json.NewDecoder(file).Decode(&cfgFromFile); err != nil {
-			return fmt.Errorf("failed to decode config: %w", err)
-		}
-	}
-
-	err = CliOpt.FromRaw(&cfgFromFile)
+	err = CliOpt.ReadConfig(configFile)
 	if err != nil {
-		return fmt.Errorf("failed to parse config: %w", err)
+		return err
 	}
 
-	if cli.NetAddr.isSet {
-		CliOpt.NetAddr = cli.NetAddr
-	}
-
-	if pInterval != 0 {
-		err = validation.ValidateNonNegativeInt64(pInterval)
-		if err != nil {
-			return fmt.Errorf("flag -p: %w", err)
-		}
-		CliOpt.PollInterval = time.Duration(pInterval) * time.Second
-	}
-
-	if rInterval != 0 {
-		err = validation.ValidateNonNegativeInt64(rInterval)
-		if err != nil {
-			return fmt.Errorf("flag -r: %w", err)
-		}
-		CliOpt.ReportInterval = time.Duration(rInterval) * time.Second
-	}
-
-	if cli.HashKey != "" {
-		CliOpt.HashKey = cli.HashKey
-	}
-
-	if cli.RateLimit != 0 {
-		err = validation.ValidateNonNegativeInt64(CliOpt.RateLimit)
-		if err != nil {
-			return fmt.Errorf("flag -l: %w", err)
-		}
-		CliOpt.RateLimit = cli.RateLimit
-	}
-
-	if cli.CryptoKey != "" {
-		CliOpt.CryptoKey = cli.CryptoKey
+	err = CliOpt.ReadArgv(cli, pInterval, rInterval)
+	if err != nil {
+		return err
 	}
 
 	err = CliOpt.LoadENV()
@@ -311,8 +329,8 @@ func parseFlags() error {
 		return fmt.Errorf("failed to load ENV flags: %w", err)
 	}
 
-	if !validation.CheckFilePresence(CliOpt.CryptoKey) {
-		CliOpt.CryptoKey, err = validation.FindCRTFile()
+	if !filevalidation.CheckFilePresence(CliOpt.CryptoKey) {
+		CliOpt.CryptoKey, err = filevalidation.FindCRTFile()
 		if err != nil {
 			return fmt.Errorf("invalid CRYPTO_KEY value: file '%v' does not exists", CliOpt.CryptoKey)
 		}

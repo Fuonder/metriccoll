@@ -15,8 +15,8 @@ var (
 )
 
 var GeneratedBuildInfo = &buildinfo.BuildInfo{
-	BuildVersion: "Generated-v0.1.20-rc2-3-g0c0cb87-dirty",
-	BuildCommit:  "0c0cb87",
-	BuildDate:    buildinfo.MustParseTime("2025-05-19T19:29:23Z"),
-	Compiler:     "go1.23.4",
+	BuildVersion: "Generated-v0.1.20-rc2-17-g38a1eb7-dirty",
+	BuildCommit:  "38a1eb7",
+	BuildDate:    buildinfo.MustParseTime("2025-05-27T09:35:56Z"),
+	Compiler:     "go1.24.1",
 }
