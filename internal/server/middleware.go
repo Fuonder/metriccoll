@@ -50,6 +50,7 @@ func (h *Handler) CheckSubnet(next http.Handler) http.Handler {
 		if h.trustedSubnet == "" {
 			logger.Log.Debug("NO SUBNET CHECK NEEDED")
 			next.ServeHTTP(rw, r)
+			return
 		}
 		ipStr := r.Header.Get("X-Real-IP")
 		if ipStr == "" {
