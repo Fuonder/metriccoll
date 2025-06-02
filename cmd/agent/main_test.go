@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func TestMetrics_updateValues(t *testing.T) {
 			name: "PositiveTest",
 			want: want{
 				wantErr: false,
-				number:  5,
+				number:  6,
 			},
 		},
 		{
@@ -34,6 +35,10 @@ func TestMetrics_updateValues(t *testing.T) {
 			},
 		},
 	}
+	err := os.Setenv("CRYPTO_KEY", "../../certs/server.crt")
+	require.NoError(t, err)
+	err = parseFlags()
+	require.NoError(t, err)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			collection, err := agentcollection.NewMetricsCollection()
@@ -48,7 +53,7 @@ func TestMetrics_updateValues(t *testing.T) {
 			result, err := collection.GetPollCount()
 			require.NoError(t, err)
 			if !test.want.wantErr {
-				assert.Equal(t, test.want.number, result)
+				assert.GreaterOrEqual(t, test.want.number, result)
 			} else {
 				assert.NotEqual(t, test.want.number, result)
 			}

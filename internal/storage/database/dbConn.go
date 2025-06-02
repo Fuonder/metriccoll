@@ -52,7 +52,7 @@ func (c *PSQLConnection) TryConnectContext(ctx context.Context) error {
 	var err error
 	logger.Log.Info("Checking db accessibility")
 	if c.db == nil {
-		logger.Log.Warn("no active connection with db")
+		logger.Log.Info("no active connection with db")
 		return fmt.Errorf("no active connection with db")
 	}
 	for i := 0; i < maxRetries; i++ {
@@ -149,7 +149,7 @@ func (c *PSQLConnection) AppendGaugeMetric(ctx context.Context, metric models.Me
 	defer func(tx *sql.Tx) {
 		err := tx.Rollback()
 		if err != nil {
-			logger.Log.Warn("can not rollback transaction", zap.Error(err))
+			logger.Log.Info("can not rollback transaction", zap.Error(err))
 		}
 	}(tx)
 
@@ -174,7 +174,7 @@ func (c *PSQLConnection) AppendCounterMetric(ctx context.Context, metric models.
 	defer func(tx *sql.Tx) {
 		err := tx.Rollback()
 		if err != nil {
-			logger.Log.Warn("can not rollback transaction", zap.Error(err))
+			logger.Log.Info("can not rollback transaction", zap.Error(err))
 		}
 	}(tx)
 
@@ -203,7 +203,7 @@ func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, e
 	defer func(rowsCounter *sql.Rows) {
 		err := rowsCounter.Close()
 		if err != nil {
-			logger.Log.Warn("Rows can not be closed", zap.Error(err))
+			logger.Log.Info("Rows can not be closed", zap.Error(err))
 		}
 	}(rowsCounter)
 	for rowsCounter.Next() {
@@ -225,7 +225,7 @@ func (c *PSQLConnection) GetAllMetrics(ctx context.Context) ([]models.Metrics, e
 		err := rowsGauge.Close()
 
 		if err != nil {
-			logger.Log.Warn("Rows can not be closed", zap.Error(err))
+			logger.Log.Info("Rows can not be closed", zap.Error(err))
 		}
 
 	}(rowsGauge)
@@ -251,7 +251,7 @@ func (c *PSQLConnection) AppendBatch(ctx context.Context, metrics []models.Metri
 	defer func(tx *sql.Tx) {
 		err := tx.Rollback()
 		if err != nil {
-			logger.Log.Warn("can not rollback transaction", zap.Error(err))
+			logger.Log.Info("can not rollback transaction", zap.Error(err))
 		}
 	}(tx)
 
@@ -268,7 +268,7 @@ func (c *PSQLConnection) AppendBatch(ctx context.Context, metrics []models.Metri
 	defer func(stmtGauge *sql.Stmt) {
 		err := stmtGauge.Close()
 		if err != nil {
-			logger.Log.Warn("Can not close gauge metric", zap.Error(err))
+			logger.Log.Info("Can not close gauge metric", zap.Error(err))
 		}
 	}(stmtGauge)
 	stmtCounter, err := tx.PrepareContext(ctx,
@@ -284,7 +284,7 @@ func (c *PSQLConnection) AppendBatch(ctx context.Context, metrics []models.Metri
 	defer func(stmtCounter *sql.Stmt) {
 		err := stmtCounter.Close()
 		if err != nil {
-			logger.Log.Warn("can not close counter metric", zap.Error(err))
+			logger.Log.Info("can not close counter metric", zap.Error(err))
 		}
 	}(stmtCounter)
 
