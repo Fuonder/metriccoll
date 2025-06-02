@@ -88,7 +88,8 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil, cipherManager, FlagsOptions.HashKey)
+		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil,
+			cipherManager, FlagsOptions.HashKey, FlagsOptions.TrustedSubnet)
 	} else {
 		logger.Log.Info("Connected to db")
 		err := dbConnection.CreateTablesContext(ctx)
@@ -100,7 +101,8 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage, cipherManager, FlagsOptions.HashKey)
+		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage,
+			cipherManager, FlagsOptions.HashKey, FlagsOptions.TrustedSubnet)
 		defer func(dbStorage *database.DBStorage) {
 			err := dbStorage.Close()
 			if err != nil {
@@ -156,6 +158,7 @@ func metricRouter(h *server.Handler) chi.Router {
 	logger.Log.Debug("Entering router")
 	router := chi.NewRouter()
 
+	router.Use(h.CheckSubnet)
 	router.Use(h.CheckMethod)
 	router.Use(h.CheckContentType)
 	router.Use(h.HashMiddleware)

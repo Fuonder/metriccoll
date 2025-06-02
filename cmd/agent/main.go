@@ -112,7 +112,10 @@ func prepareService(CliOpt *CliOptions, jobsCh chan []byte) (collector *memcolle
 		return nil, err
 	}
 
-	collector = memcollector.NewMemoryCollector(mc, timeIntervals, jobsCh, cipherManger)
+	collector, err = memcollector.NewMemoryCollector(mc, timeIntervals, jobsCh, cipherManger)
+	if err != nil {
+		logger.Log.Fatal("", zap.Error(err))
+	}
 
 	err = collector.SetRemoteIP(CliOpt.NetAddr.String())
 	if err != nil {

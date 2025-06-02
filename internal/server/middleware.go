@@ -7,6 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"strings"
 )
@@ -21,6 +23,50 @@ var validContentTypes = map[string]struct{}{
 func isValidContentType(ct string) bool {
 	_, ok := validContentTypes[ct]
 	return ok || ct == ""
+}
+
+// isIPTrusted проверяет входит ли переданный IP адрес в диапазон CIDR.
+func isIPTrusted(ipStr string, cidr string) bool {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		log.Printf("Invalid IP: %s", ipStr)
+		return false
+	}
+
+	_, subnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		log.Printf("Invalid CIDR: %s", cidr)
+		return false
+	}
+
+	return subnet.Contains(ip)
+}
+
+// CheckSubnet - middleware, который обрабатывает полученный запрос и
+// проверяет входит ли IP отправителя в доверенную подсеть.
+func (h *Handler) CheckSubnet(next http.Handler) http.Handler {
+	logger.Log.Debug("CHECKING SUBNET")
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		if h.trustedSubnet == "" {
+			logger.Log.Debug("NO SUBNET CHECK NEEDED")
+			next.ServeHTTP(rw, r)
+			return
+		}
+		ipStr := r.Header.Get("X-Real-IP")
+		if ipStr == "" {
+			logger.Log.Debug("Missing X-Real-IP header")
+			http.Error(rw, "Missing X-Real-IP header", http.StatusBadRequest)
+			return
+		}
+
+		if !isIPTrusted(ipStr, h.trustedSubnet) {
+			logger.Log.Debug("IP NOT trusted")
+			http.Error(rw, "Forbidden: IP not in trusted subnet", http.StatusForbidden)
+			return
+		}
+		logger.Log.Debug("IP trusted")
+		next.ServeHTTP(rw, r)
+	})
 }
 
 // CheckMethod проверяет, что метод запроса является GET или POST.
