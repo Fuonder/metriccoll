@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/certmanager"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -49,17 +50,26 @@ type MemoryCollector struct {
 	jobsCh        chan []byte
 	tData         TimeIntervals
 	wg            sync.WaitGroup
+	localIP       string
 }
 
-func NewMemoryCollector(stArg storage.Collection, tData *TimeIntervals, jobsCh chan []byte, cipherManager certmanager.TLSCipher) *MemoryCollector {
+func NewMemoryCollector(stArg storage.Collection,
+	tData *TimeIntervals,
+	jobsCh chan []byte,
+	cipherManager certmanager.TLSCipher) (*MemoryCollector, error) {
 	logger.Log.Debug("Creating Memory Collector")
+	ip, err := getLocalIP()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get local ip: %v", err)
+	}
 	c := &MemoryCollector{st: stArg,
 		remoteIP:      "",
 		hashKey:       "",
 		cipherManager: cipherManager,
 		jobsCh:        jobsCh,
-		tData:         *tData}
-	return c
+		tData:         *tData,
+		localIP:       ip}
+	return c, nil
 }
 
 //func NewEmptyMemoryCollector() *MemoryCollector {
@@ -262,6 +272,7 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("X-Real-IP", c.localIP).
 		SetBody(cBody)
 
 	if c.hashKey != "" {
@@ -306,4 +317,36 @@ func (c *MemoryCollector) worker(idx int, jobs <-chan []byte) error {
 		}
 	}
 	return nil
+}
+
+func getLocalIP() (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, i := range interfaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			if ip.To4() != nil {
+				return ip.String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no connected network interface found")
 }

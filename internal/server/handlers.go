@@ -42,8 +42,9 @@ type Handler struct {
 	mWriter       storage.MetricWriter          // Интерфейс для записи метрик.
 	mFileHandler  storage.MetricFileHandler     // Интерфейс для работы с файлами.
 	mDBHandler    storage.MetricDatabaseHandler // Интерфейс для взаимодействия с БД.
-	cipherManager certmanager.TLSDecipher       // Интерфейс для дешифровки запрсов
+	cipherManager certmanager.TLSDecipher       // Интерфейс для дешифровки запрсов.
 	hashKey       string                        // Ключ для проверки/генерации HMAC.
+	trustedSubnet string                        // Доверяемая сеть, для входящих запросов.
 }
 
 // NewHandler создает новый экземпляр Handler и инициализирует зависимости.
@@ -52,7 +53,8 @@ func NewHandler(mReader storage.MetricReader,
 	mFileHandler storage.MetricFileHandler,
 	mDBHandler storage.MetricDatabaseHandler,
 	cipherManager certmanager.TLSDecipher,
-	hashKey string) *Handler {
+	hashKey string,
+	trustedSubnet string) *Handler {
 	h := Handler{
 		mReader:       mReader,
 		mWriter:       mWriter,
@@ -60,6 +62,7 @@ func NewHandler(mReader storage.MetricReader,
 		mDBHandler:    mDBHandler,
 		cipherManager: cipherManager,
 		hashKey:       hashKey,
+		trustedSubnet: trustedSubnet,
 	}
 	return &h
 }
