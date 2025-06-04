@@ -21,7 +21,7 @@ var (
 )
 
 var (
-	version  = "0.1.21"
+	version  = "0.1.25"
 	progName = "Fuonder's ya-practicum client"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -80,6 +80,7 @@ type rawCliOptions struct {
 	HashKey        string     `json:"hash_key"`
 	RateLimit      int64      `json:"rate_limit"`
 	CryptoKey      string     `json:"crypto_key"`
+	GRPCAddress    string     `json:"grpc_address"`
 }
 
 type CliOptions struct {
@@ -89,6 +90,7 @@ type CliOptions struct {
 	HashKey        string        `json:"hash_key"`
 	RateLimit      int64         `json:"rate_limit"`
 	CryptoKey      string        `json:"crypto_key"`
+	GRPCAddress    string        `json:"grpc_address"`
 }
 
 func (o *CliOptions) String() string {
@@ -98,13 +100,15 @@ func (o *CliOptions) String() string {
 			"pollInterval:%s, "+
 			"hashKey:%s, "+
 			"rateLimit: %d, "+
-			"CryptoKey: %s",
+			"CryptoKey: %s "+
+			"GRPCAddress: %s",
 		o.NetAddr.String(),
 		o.ReportInterval,
 		o.PollInterval,
 		o.HashKey,
 		o.RateLimit,
 		o.CryptoKey,
+		o.GRPCAddress,
 	)
 }
 
@@ -144,6 +148,10 @@ func (o *CliOptions) ReadArgv(argv CliOptions, pInt int64, rInt int64) error {
 	if argv.CryptoKey != "" {
 		o.CryptoKey = argv.CryptoKey
 	}
+
+	if argv.GRPCAddress != "" {
+		o.GRPCAddress = argv.GRPCAddress
+	}
 	return nil
 }
 
@@ -157,6 +165,7 @@ func (o *CliOptions) ReadConfig(from string) error {
 		HashKey:        "",
 		RateLimit:      1,
 		CryptoKey:      "./certs/server.crt",
+		GRPCAddress:    ":3333",
 	}
 
 	if from != "" {
@@ -206,7 +215,7 @@ func (o *CliOptions) FromRaw(raw *rawCliOptions) error {
 		return err
 	}
 
-	o.SetN(raw.NetAddr, rt, pt, raw.HashKey, raw.RateLimit, raw.CryptoKey)
+	o.SetN(raw.NetAddr, rt, pt, raw.HashKey, raw.RateLimit, raw.CryptoKey, raw.GRPCAddress)
 	return nil
 }
 
@@ -215,13 +224,15 @@ func (o *CliOptions) SetN(netAddress NetAddress,
 	pollInterval time.Duration,
 	hashKey string,
 	rateLimit int64,
-	cryptoKey string) {
+	cryptoKey string,
+	GRPCAddress string) {
 	o.NetAddr = netAddress
 	o.ReportInterval = reportInterval
 	o.PollInterval = pollInterval
 	o.HashKey = hashKey
 	o.RateLimit = rateLimit
 	o.CryptoKey = cryptoKey
+	o.GRPCAddress = GRPCAddress
 }
 
 func (o *CliOptions) Copy(another *CliOptions) {
@@ -231,6 +242,7 @@ func (o *CliOptions) Copy(another *CliOptions) {
 	o.HashKey = another.HashKey
 	o.RateLimit = another.RateLimit
 	o.CryptoKey = another.CryptoKey
+	o.GRPCAddress = another.GRPCAddress
 }
 
 func (o *CliOptions) LoadENV() error {
@@ -285,6 +297,11 @@ func (o *CliOptions) LoadENV() error {
 			o.CryptoKey = envCryptoKey
 		}
 	}
+
+	if envGRPCAddress := os.Getenv("GRPC_ADDRESS"); envGRPCAddress != "" {
+		o.GRPCAddress = envGRPCAddress
+	}
+
 	return nil
 }
 
@@ -308,6 +325,7 @@ func parseFlags() error {
 	flag.StringVar(&cli.CryptoKey, "crypto-key", "", "Path to private key file")
 	flag.StringVar(&configFile, "config", "", "Path to config file")
 	flag.StringVar(&configFile, "c", "", "Path to config file")
+	flag.StringVar(&cli.GRPCAddress, "g", "", "ip and port for GRPC server")
 	flag.Parse()
 
 	if envConfig := os.Getenv("CONFIG"); envConfig != "" {

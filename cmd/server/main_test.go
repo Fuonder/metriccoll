@@ -162,7 +162,7 @@ func TestMetricRouter(t *testing.T) {
 	err = cipherManager.LoadPrivateKey("../../certs/server.key")
 	require.NoError(t, err)
 
-	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey)
+	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey, FlagsOptions.TrustedSubnet)
 	require.NoError(t, err)
 	ts := httptest.NewServer(metricRouter(h))
 	defer ts.Close()
@@ -296,7 +296,8 @@ func TestJSONHandling(t *testing.T) {
 	err = cipherManager.LoadCertificate("../../certs/server.crt")
 	require.NoError(t, err)
 
-	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey)
+	h := server.NewHandler(ms, ms, ms, nil, cipherManager, FlagsOptions.HashKey, FlagsOptions.TrustedSubnet)
+
 	gaugeInitValue := 1.0
 	counterInitValue := int64(1)
 	err = ms.AppendMetric(models.Metrics{

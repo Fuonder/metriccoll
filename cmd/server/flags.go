@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	version  = "0.1.21"
+	version  = "0.1.25"
 	progName = "Fuonder's ya-practicum server"
 	source   = "https://github.com/Fuonder/metriccoll"
 )
@@ -81,6 +81,8 @@ type rawFlags struct {
 	DatabaseDSN     string     `json:"database_dsn"`
 	HashKey         string     `json:"hash_key,omitempty"`
 	CryptoKey       string     `json:"crypto_key"`
+	TrustedSubnet   string     `json:"trusted_subnet"`
+	GRPCAddress     string     `json:"grpc_address"`
 }
 
 type Flags struct {
@@ -92,6 +94,8 @@ type Flags struct {
 	DatabaseDSN     string        `json:"database_dsn"`
 	HashKey         string        `json:"hash_key,omitempty"`
 	CryptoKey       string        `json:"crypto_key"`
+	TrustedSubnet   string        `json:"trusted_subnet"`
+	GRPCAddress     string        `json:"grpc_address"`
 }
 
 func (f *Flags) ReadArgv(cli Flags, sInt int64) error {
@@ -129,6 +133,12 @@ func (f *Flags) ReadArgv(cli Flags, sInt int64) error {
 			f.CryptoKey = cli.CryptoKey
 		}
 	}
+	if cli.TrustedSubnet != "" {
+		f.TrustedSubnet = cli.TrustedSubnet
+	}
+	if cli.GRPCAddress != "" {
+		f.GRPCAddress = cli.GRPCAddress
+	}
 	return nil
 }
 
@@ -144,6 +154,8 @@ func (f *Flags) ReadConfig(from string) error {
 		DatabaseDSN:     "postgres://videos:12345678@localhost:5432/videos?sslmode=disable",
 		HashKey:         "",
 		CryptoKey:       "./certs/server.key",
+		TrustedSubnet:   "",
+		GRPCAddress:     ":3333",
 	}
 	if from != "" {
 		if !filevalidation.CheckFilePresence(from) {
@@ -184,7 +196,9 @@ func (f *Flags) FromRaw(raw *rawFlags) error {
 		raw.Restore,
 		raw.DatabaseDSN,
 		raw.HashKey,
-		raw.CryptoKey)
+		raw.CryptoKey,
+		raw.TrustedSubnet,
+		raw.GRPCAddress)
 	return nil
 }
 
@@ -195,7 +209,9 @@ func (f *Flags) SetN(netAddress NetAddress,
 	restore bool,
 	databaseDSN string,
 	hashKey string,
-	cryptoKey string) {
+	cryptoKey string,
+	trustedSubnet string,
+	GRPCAddress string) {
 	f.NetAddress = netAddress
 	f.LogLevel = logLevel
 	f.StoreInterval = storeInterval
@@ -204,6 +220,8 @@ func (f *Flags) SetN(netAddress NetAddress,
 	f.DatabaseDSN = databaseDSN
 	f.HashKey = hashKey
 	f.CryptoKey = cryptoKey
+	f.TrustedSubnet = trustedSubnet
+	f.GRPCAddress = GRPCAddress
 }
 
 func (f *Flags) Copy(another *Flags) {
@@ -215,6 +233,8 @@ func (f *Flags) Copy(another *Flags) {
 	f.DatabaseDSN = another.DatabaseDSN
 	f.HashKey = another.HashKey
 	f.CryptoKey = another.CryptoKey
+	f.TrustedSubnet = another.TrustedSubnet
+	f.GRPCAddress = another.GRPCAddress
 }
 
 func (f *Flags) String() string {
@@ -225,7 +245,9 @@ func (f *Flags) String() string {
 		"Restore: %v, "+
 		"DatabaseDSN: %s, "+
 		"HashKey: %s, "+
-		"CryptoKey: %s",
+		"CryptoKey: %s "+
+		"TrustedSubnet: %s "+
+		"GRPCAddress: %s",
 		f.NetAddress.String(),
 		f.LogLevel,
 		f.StoreInterval.String(),
@@ -234,6 +256,8 @@ func (f *Flags) String() string {
 		f.DatabaseDSN,
 		f.HashKey,
 		f.CryptoKey,
+		f.TrustedSubnet,
+		f.GRPCAddress,
 	)
 }
 
@@ -302,6 +326,12 @@ func (f *Flags) LoadENV() error {
 			f.CryptoKey = envCryptoKey
 		}
 	}
+	if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+		f.TrustedSubnet = envTrustedSubnet
+	}
+	if envGRPCAddress := os.Getenv("GRPC_ADDRESS"); envGRPCAddress != "" {
+		f.GRPCAddress = envGRPCAddress
+	}
 	return nil
 }
 
@@ -325,6 +355,8 @@ func parseFlags() error {
 	flag.StringVar(&cli.CryptoKey, "crypto-key", "", "Path to private key file")
 	flag.StringVar(&configFile, "config", "", "Path to config file")
 	flag.StringVar(&configFile, "c", "", "Path to config file")
+	flag.StringVar(&cli.TrustedSubnet, "t", "", "Trusted subnet for incoming requests")
+	flag.StringVar(&cli.GRPCAddress, "g", "", "ip and port for GRPC service")
 	flag.Parse()
 
 	if envConfig := os.Getenv("CONFIG"); envConfig != "" {

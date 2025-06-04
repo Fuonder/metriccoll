@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Fuonder/metriccoll.git/internal/certmanager"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -18,8 +19,6 @@ import (
 	"github.com/Fuonder/metriccoll.git/internal/models"
 	"github.com/Fuonder/metriccoll.git/internal/storage"
 	"github.com/go-resty/resty/v2"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -29,18 +28,6 @@ var (
 	ErrWrongResponseStatus = errors.New("wrong request data or metrics value")
 )
 
-type TimeIntervals struct {
-	reportInterval time.Duration
-	pollInterval   time.Duration
-}
-
-func NewTimeIntervals(rInterval time.Duration, pInterval time.Duration) *TimeIntervals {
-	return &TimeIntervals{
-		reportInterval: rInterval,
-		pollInterval:   pInterval,
-	}
-}
-
 type MemoryCollector struct {
 	st            storage.Collection
 	remoteIP      string
@@ -49,17 +36,26 @@ type MemoryCollector struct {
 	jobsCh        chan []byte
 	tData         TimeIntervals
 	wg            sync.WaitGroup
+	localIP       string
 }
 
-func NewMemoryCollector(stArg storage.Collection, tData *TimeIntervals, jobsCh chan []byte, cipherManager certmanager.TLSCipher) *MemoryCollector {
+func NewMemoryCollector(stArg storage.Collection,
+	tData *TimeIntervals,
+	jobsCh chan []byte,
+	cipherManager certmanager.TLSCipher) (*MemoryCollector, error) {
 	logger.Log.Debug("Creating Memory Collector")
+	ip, err := getLocalIP()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get local ip: %v", err)
+	}
 	c := &MemoryCollector{st: stArg,
 		remoteIP:      "",
 		hashKey:       "",
 		cipherManager: cipherManager,
 		jobsCh:        jobsCh,
-		tData:         *tData}
-	return c
+		tData:         *tData,
+		localIP:       ip}
+	return c, nil
 }
 
 //func NewEmptyMemoryCollector() *MemoryCollector {
@@ -87,49 +83,6 @@ func (c *MemoryCollector) SetRemoteIP(remoteIP string) error {
 func (c *MemoryCollector) SetHashKey(key string) error {
 	c.hashKey = key
 	return nil
-}
-
-func getMemoryInfo() ([]models.Metrics, error) {
-	v, err := mem.VirtualMemory()
-	if err != nil {
-		return []models.Metrics{}, err
-	}
-
-	var mList []models.Metrics
-
-	totalMemoryFloat := float64(v.Total)
-	freeMemoryFloat := float64(v.Available)
-	mList = append(mList, models.Metrics{
-		ID:    "TotalMemory",
-		MType: "gauge",
-		Delta: nil,
-		Value: &totalMemoryFloat,
-	})
-	mList = append(mList, models.Metrics{
-		ID:    "FreeMemory",
-		MType: "gauge",
-		Delta: nil,
-		Value: &freeMemoryFloat,
-	})
-
-	return mList, nil
-
-}
-
-func getCPUUtilization() ([]models.Metrics, error) {
-	var mList []models.Metrics
-	percentages, _ := cpu.Percent(0, true)
-
-	for idx, p := range percentages {
-		mt := models.Metrics{
-			ID:    fmt.Sprintf("CPUutilization%d", idx),
-			MType: "gauge",
-			Delta: nil,
-			Value: &p,
-		}
-		mList = append(mList, mt)
-	}
-	return mList, nil
 }
 
 func (c *MemoryCollector) collectNewMetrics(ctx context.Context) ([]byte, error) {
@@ -262,6 +215,7 @@ func (c *MemoryCollector) Post(packetBody []byte, remoteURL string) error {
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetHeader("Accept-Encoding", "gzip").
+		SetHeader("X-Real-IP", c.localIP).
 		SetBody(cBody)
 
 	if c.hashKey != "" {
@@ -306,4 +260,37 @@ func (c *MemoryCollector) worker(idx int, jobs <-chan []byte) error {
 		}
 	}
 	return nil
+}
+
+func getLocalIP() (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, i := range interfaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			if ip.To4() != nil {
+				logger.Log.Info("local IP", zap.Any("", ip.String()))
+				return ip.String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no connected network interface found")
 }

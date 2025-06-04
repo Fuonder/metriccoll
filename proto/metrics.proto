@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package metriccoll;
+
+option go_package = "github.com/Fuonder/metriccoll/proto";
+
+message EncryptedMessage {
+  bytes blob = 1;
+}
+
+message UpdateMetricsResponse {
+  bytes blob = 1;
+  string error = 2;
+}
+
+message ListMetricsResponse {
+  bytes blob = 1;
+  string error = 2;
+}
+
+message UpdateMetricResponse {
+  bytes blob = 1;
+  string error = 2;
+}
+
+message GetMetricResponse {
+  bytes value = 1;
+  string error = 2;
+}
+
+service Metrics {
+  rpc UpdateMetrics(EncryptedMessage) returns (UpdateMetricsResponse);
+  rpc UpdateMetric(EncryptedMessage) returns (UpdateMetricResponse);
+  rpc ListMetrics(EncryptedMessage) returns (ListMetricsResponse);
+  rpc GetMetric(EncryptedMessage) returns (GetMetricResponse);
+}
