@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/Fuonder/metriccoll.git/internal/app"
 	"github.com/Fuonder/metriccoll.git/internal/buildinfo"
 	"github.com/Fuonder/metriccoll.git/internal/certmanager"
+	"github.com/Fuonder/metriccoll.git/internal/grpc/service"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -39,7 +40,7 @@ func main() {
 	logger.Log.Debug("Flags parsed",
 		zap.String("flags", FlagsOptions.String()))
 
-	logger.Log.Info("Starting metric MemoryCollector")
+	logger.Log.Info("Starting metric Service")
 	if err = run(); err != nil {
 		logger.Log.Fatal("", zap.Error(err))
 	}
@@ -63,57 +64,69 @@ func createJSONStorage() (*storage.JSONStorage, error) {
 	return ms, nil
 }
 
-func run() error {
+func buildApp(ctx context.Context) (*app.Application, *server.Handler, error) {
 	var handler *server.Handler
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	dbSettings := FlagsOptions.DatabaseDSN
+	var grpcService *service.Service
 
 	cipherManager, err := certmanager.NewCertManager()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	err = cipherManager.LoadPrivateKey(FlagsOptions.CryptoKey)
-	if err != nil {
-		return err
+	if err := cipherManager.LoadPrivateKey(FlagsOptions.CryptoKey); err != nil {
+		return nil, nil, err
 	}
 
+	dbSettings := FlagsOptions.DatabaseDSN
 	dbConnection, err := database.NewPSQLConnection(ctx, dbSettings)
 	if err != nil {
 		logger.Log.Warn("Cannot connect to db")
 		logger.Log.Info("Switching to file(json) storage")
+
 		jsonStorage, err := createJSONStorage()
 		if err != nil {
-			return err
-		}
-		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil,
-			cipherManager, FlagsOptions.HashKey, FlagsOptions.TrustedSubnet)
-	} else {
-		logger.Log.Info("Connected to db")
-		err := dbConnection.CreateTablesContext(ctx)
-		if err != nil {
-			return err
+			return nil, nil, err
 		}
 
+		handler = server.NewHandler(jsonStorage, jsonStorage, jsonStorage, nil,
+			cipherManager, FlagsOptions.HashKey, FlagsOptions.TrustedSubnet)
+
+		grpcService = service.NewService(jsonStorage, jsonStorage, jsonStorage, nil,
+			cipherManager, FlagsOptions.TrustedSubnet, FlagsOptions.GRPCAddress, FlagsOptions.HashKey)
+
+	} else {
+		logger.Log.Info("Connected to db")
+		if err := dbConnection.CreateTablesContext(ctx); err != nil {
+			return nil, nil, err
+		}
 		dbStorage, err := database.NewDBStorage(ctx, dbConnection)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
+
 		handler = server.NewHandler(dbStorage, dbStorage, nil, dbStorage,
 			cipherManager, FlagsOptions.HashKey, FlagsOptions.TrustedSubnet)
-		defer func(dbStorage *database.DBStorage) {
-			err := dbStorage.Close()
-			if err != nil {
-				logger.Log.Warn("Cannot close db", zap.Error(err))
-			}
-		}(dbStorage)
+
+		grpcService = service.NewService(dbStorage, dbStorage, nil, dbStorage,
+			cipherManager, FlagsOptions.TrustedSubnet, FlagsOptions.GRPCAddress, FlagsOptions.HashKey)
+
+		//defer dbStorage.Close()
 	}
 
 	srv := &http.Server{
 		Addr:    FlagsOptions.NetAddress.String(),
 		Handler: metricRouter(handler),
+	}
+
+	return app.NewApplication(srv, grpcService), handler, nil
+}
+
+func run() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	appInstance, handler, err := buildApp(ctx)
+	if err != nil {
+		return err
 	}
 
 	shutdownCtx, shutdownStop := context.WithCancel(context.Background())
@@ -122,18 +135,16 @@ func run() error {
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
 		sig := <-sigCh
 		logger.Log.Info("Received shutdown signal", zap.String("signal", sig.String()))
 
 		ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := srv.Shutdown(ctxTimeout); err != nil {
-			logger.Log.Error("HTTP server Shutdown failed", zap.Error(err))
+		if err := appInstance.Close(ctxTimeout); err != nil {
+			logger.Log.Error("Error shutting down services", zap.Error(err))
 		}
 
-		// Сохраняем данные, если нужно
 		if handler != nil && handler.HasFileHandler() {
 			logger.Log.Info("Dumping metrics before shutdown...")
 			if err := handler.DumpToFile(); err != nil {
@@ -144,13 +155,14 @@ func run() error {
 		shutdownStop()
 	}()
 
-	logger.Log.Info("Starting HTTP server", zap.String("addr", srv.Addr))
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("HTTP server ListenAndServe: %w", err)
+	logger.Log.Info("Starting application services")
+	if err := appInstance.Run(shutdownCtx); err != nil {
+		logger.Log.Error("Run failure", zap.Error(err))
+		return err
 	}
 
 	<-shutdownCtx.Done()
-	logger.Log.Info("Server shutdown complete")
+	logger.Log.Info("Main process shutdown complete")
 	return nil
 }
 

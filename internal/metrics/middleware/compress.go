@@ -49,3 +49,22 @@ func gzipDecompress(data []byte) ([]byte, error) {
 	}
 	return buffer.Bytes(), nil
 }
+
+func GzipDecompress(data []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize gzip reader: %v", err)
+	}
+	defer func() {
+		if err := reader.Close(); err != nil {
+			logger.Log.Info("Failed to close gzip reader", zap.Error(err))
+		}
+	}()
+
+	var buffer bytes.Buffer
+	_, err = buffer.ReadFrom(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decompress data: %v", err)
+	}
+	return buffer.Bytes(), nil
+}

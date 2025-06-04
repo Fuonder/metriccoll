@@ -35,6 +35,32 @@ func RetryableWorkerHTTPSend(sender workerSendFunc, remoteURL string, data []byt
 	return err
 }
 
+type GRPCSendFunc func([]byte) error
+
+func RetryableWorkerGRPCSend(sender GRPCSendFunc, data []byte, retriesCount int) error {
+	var err error
+	timeouts := make([]time.Duration, retriesCount)
+	for i := 0; i < retriesCount; i++ {
+		timeouts[i] = time.Duration(2*i+1) * time.Second
+	}
+
+	for i := 0; i < retriesCount; i++ {
+		logger.Log.Info("sending metrics")
+		err = sender(data)
+		if err == nil {
+			return nil
+		}
+		if i < len(timeouts) {
+			logger.Log.Info("sending metrics failed", zap.Error(err))
+			logger.Log.Info("retrying after timeout",
+				zap.Duration("timeout", timeouts[i]),
+				zap.Int("retry-count", i+1))
+			time.Sleep(timeouts[i])
+		}
+	}
+	return err
+}
+
 // senderFunc Deprecated
 type senderFunc func(storage.Collection) error
 
